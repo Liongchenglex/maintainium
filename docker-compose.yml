@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: maintainium-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: maintainium
+      POSTGRES_PASSWORD: maintainium_dev
+      POSTGRES_DB: maintainium
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
