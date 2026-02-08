@@ -81,91 +81,8 @@ Must include:
 
 ---
 
-## 4. Sequence Diagram (Text-Based)
 
-**Purpose**: Make interactions explicit.
-
-A text-based sequence diagram **must be included**.
-
-```md
-### Sequence Diagram
-User → UI: action
-UI → API: request
-API → DB: read/write
-DB → API: response
-API → UI: result
-```
-
----
-
-## 5. Visual Confirmation of the Flow
-
-**Purpose**: Ensure the flow makes sense visually.
-
-Must include one of:
-
-* ASCII flow diagram
-* Screen-by-screen outline
-* Referenced wireframe (if exists)
-
-```md
-### Visual Flow
-[Screen A] → [Screen B] → [Success / Error]
-```
-
----
-
-## 6. Inputs & Outputs
-
-**Purpose**: Define system boundaries.
-
-Must include:
-
-* Required inputs
-* Optional inputs
-* Outputs (success + failure)
-
-```md
-### Inputs
-- field_a (required)
-- field_b (optional)
-
-### Outputs
-- success_response
-- error_response
-```
-
----
-
-## 7. API Contracts & Payloads
-
-**Purpose**: Lock interface expectations.
-
-Must include:
-
-* Endpoint
-* Method
-* Request payload
-* Response payload
-
-```md
-### API Contract
-POST /api/example
-
-Request:
-{
-  "field": "value"
-}
-
-Response:
-{
-  "status": "success"
-}
-```
-
----
-
-## 8. Edge Cases
+## 4. Edge Cases
 
 **Purpose**: Prevent silent failures.
 
@@ -185,7 +102,7 @@ Must include:
 
 ---
 
-## 9. Failure Modes
+## 5. Failure Modes
 
 **Purpose**: Define what “failure” looks like.
 
@@ -206,7 +123,7 @@ Must include:
 
 ---
 
-## 10. Acceptance Criteria
+## 6. Acceptance Criteria
 
 **Purpose**: Make the requirement testable.
 
@@ -223,7 +140,7 @@ Each criterion must be:
 
 ---
 
-## 11. Open Questions / Assumptions (Must Be Resolved)
+## 7. Open Questions / Assumptions (Must Be Resolved)
 
 **Purpose**: Prevent hidden ambiguity.
 

@@ -83,16 +83,96 @@ Include ownership and lifecycle if non-obvious.
 
 ---
 
-## 4. APIs
+---
+
+## 4. API Contracts & Payloads
+
+**Purpose**: Lock interface expectations.
+
+Must include:
+
+* Endpoint
+* Method
+* Request payload
+* Response payload
 
 ```md
-## APIs
-- METHOD /endpoint
+### API Contract
+POST /api/example
+
+Request:
+{
+  "field": "value"
+}
+
+Response:
+{
+  "status": "success"
+}
+```
+
+---
+---
+
+
+## 5. Sequence Diagram (Text-Based)
+
+**Purpose**: Make interactions explicit.
+
+A text-based sequence diagram **must be included**.
+
+```md
+### Sequence Diagram
+User → UI: action
+UI → API: request
+API → DB: read/write
+DB → API: response
+API → UI: result
 ```
 
 ---
 
-## 5. State & Ownership
+## 6. Visual Confirmation of the Flow
+
+**Purpose**: Ensure the flow makes sense visually.
+
+Must include one of:
+
+* ASCII flow diagram
+* Screen-by-screen outline
+* Referenced wireframe (if exists)
+
+```md
+### Visual Flow
+[Screen A] → [Screen B] → [Success / Error]
+```
+
+---
+
+## 7. Inputs & Outputs
+
+**Purpose**: Define system boundaries.
+
+Must include:
+
+* Required inputs
+* Optional inputs
+* Outputs (success + failure)
+
+```md
+### Inputs
+- field_a (required)
+- field_b (optional)
+
+### Outputs
+- success_response
+- error_response
+```
+
+
+---
+
+## 8. State & Ownership
 
 ```md
 ## State & Ownership
@@ -102,7 +182,7 @@ Cached on client:
 
 ---
 
-## 6. Security Notes
+## 9. Security Notes
 
 ```md
 ## Security
@@ -112,7 +192,7 @@ Ownership enforced on:
 
 ---
 
-## 7. Dependencies
+## 10. Dependencies
 
 ```md
 ## Dependencies
@@ -122,20 +202,11 @@ Ownership enforced on:
 ```
 
 ---
-## 8. Coding Patterns Used
-- <pattern name>
 
-
-## 9. Known Tradeoffs / Debt
-
-```md
-## Tradeoffs
-- Known limitations
-```
 
 This section must be honest and explicit.
 
----
+
 
 ## Maintenance Rules
 

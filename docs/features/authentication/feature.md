@@ -64,11 +64,134 @@
 
 ---
 
-## APIs
+## API Contracts & Payloads
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/users/me` | Required (Bearer token) | Returns the authenticated user's DB record |
+### GET /users/me
+
+**Auth:** Required (Bearer token)
+
+**Request:**
+```
+GET /users/me
+Authorization: Bearer <firebase_id_token>
+```
+
+No request body.
+
+**Response (200):**
+```json
+{
+  "id": "uuid",
+  "firebaseUid": "string",
+  "email": "string",
+  "displayName": "string | null",
+  "avatarUrl": "string | null",
+  "authProvider": "email | github",
+  "emailVerified": "boolean",
+  "lastLoginAt": "ISO 8601 timestamp | null",
+  "createdAt": "ISO 8601 timestamp",
+  "updatedAt": "ISO 8601 timestamp"
+}
+```
+
+**Response (401):**
+```json
+{
+  "message": "Invalid or expired token",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+```
+
+---
+
+## Sequence Diagram
+
+### Sign Up / Log In (Email or GitHub)
+
+```
+User → Browser: fills form / clicks OAuth button
+Browser → Firebase Auth: createUser / signIn / signInWithPopup
+Firebase Auth → Browser: credential (ID token)
+Browser → API: GET /users/me (Authorization: Bearer <token>)
+API → Firebase Admin: verifyIdToken(token)
+Firebase Admin → API: decoded token (uid, email, provider)
+API → PostgreSQL: INSERT ... ON CONFLICT DO UPDATE (users)
+PostgreSQL → API: user record
+API → Browser: 200 user JSON
+Browser → Browser: store in AuthContext, set __session cookie
+Browser → User: redirect to /dashboard
+```
+
+### Sign Out
+
+```
+User → Browser: clicks "Sign out"
+Browser → Firebase Auth: signOut()
+Browser → Browser: clear AuthContext, remove __session cookie
+Browser → User: redirect to /login
+```
+
+### Route Protection (Middleware)
+
+```
+User → Browser: navigates to /dashboard
+Browser → Next.js Middleware: check __session cookie
+Middleware [no cookie] → Browser: redirect to /login
+Middleware [has cookie] → Browser: allow, render page
+```
+
+---
+
+## Visual Flow
+
+```
+[/ Landing] ──→ [/signup] ──→ [Firebase Auth] ──→ [/dashboard]
+                   │                                    │
+                   ↓                                    ↓
+              [/login] ──→ [Firebase Auth] ──→ [/dashboard]
+                                                        │
+                                                   [Sign Out]
+                                                        │
+                                                        ↓
+                                                   [/login]
+
+Protected routes: /dashboard/*
+Auth routes:      /login, /signup
+Public routes:    /
+```
+
+---
+
+## Inputs & Outputs
+
+### Sign Up (Email/Password)
+
+| Input | Required | Validation |
+|-------|----------|-----------|
+| Display name | Yes | Non-empty (browser native) |
+| Email | Yes | Valid email format (browser native + Firebase) |
+| Password | Yes | Min 6 characters (Firebase enforced) |
+
+**Output (success):** User created in Firebase + PostgreSQL, redirected to `/dashboard`
+**Output (failure):** User-friendly error message displayed inline
+
+### Log In (Email/Password)
+
+| Input | Required | Validation |
+|-------|----------|-----------|
+| Email | Yes | Valid email format (browser native) |
+| Password | Yes | Non-empty (browser native) |
+
+**Output (success):** User authenticated, `last_login_at` updated, redirected to `/dashboard`
+**Output (failure):** User-friendly error message displayed inline
+
+### GitHub OAuth
+
+No user inputs — OAuth flow handled by popup.
+
+**Output (success):** User created/updated in Firebase + PostgreSQL, redirected to `/dashboard`
+**Output (failure):** User-friendly error message displayed inline
 
 ---
 
@@ -76,7 +199,7 @@
 
 - **Source of truth (auth state):** Firebase Auth SDK on client
 - **Source of truth (user data):** PostgreSQL `users` table
-- **Client-side cache:** `AuthContext` holds `user` (Firebase) and `dbUser` (PostgreSQL record)
+- **Cached on client:** `AuthContext` holds `user` (Firebase) and `dbUser` (PostgreSQL record)
 - **Session cookie:** `__session` — UX hint for middleware redirects, NOT a security boundary
 
 ---
@@ -104,13 +227,22 @@
 
 ## Coding Patterns Used
 
-- **NestJS Guard pattern** — `CanActivate` for auth checks
-- **Custom param decorator** — `@CurrentUser()` for clean controller signatures
-- **Global module pattern** — `DatabaseModule` is `@Global()`, exports `DRIZZLE` token
-- **Upsert pattern** — `INSERT ... ON CONFLICT DO UPDATE` for user creation/update
-- **Lazy initialization** — Firebase client SDK uses getter functions to avoid SSR/build issues
-- **Inline styles** — Consistent with existing `health-status.tsx` pattern (no CSS framework)
-- **Server/client component split** — Page files are server components that render client form components
+See `docs/playbook/coding-patterns.md` for full definitions.
+
+- **B1** — Feature Module Structure (Auth, Users)
+- **B2** — Global Module (DatabaseModule)
+- **B3** — Symbol Injection Token (DRIZZLE)
+- **B4** — Guard-Based Auth (AuthGuard + @CurrentUser)
+- **B5** — Upsert Pattern (UsersService.upsertFromFirebase)
+- **B6** — Config Validation (env.validation.ts)
+- **B7** — Circular Module Resolution (AuthModule ↔ UsersModule)
+- **F1** — Server Component Page → Client Component Body
+- **F2** — Inline Styles
+- **F3** — Auth Context Provider
+- **F4** — Lazy Firebase Initialization
+- **F5** — API Client with Auth Headers
+- **F6** — Firebase Error Mapping
+- **F7** — Middleware Route Protection
 
 ---
 
@@ -122,3 +254,6 @@
 4. **No orgs/multi-tenancy** — flat user model for M1; orgs deferred to future milestone
 5. **Cookie-based middleware is UX only** — NOT a security boundary; backend AuthGuard is real auth
 6. **No refresh token rotation** — Firebase SDK handles token refresh automatically
+7. **GitHub private email fallback** — uses `{uid}@noreply.github.com` when email unavailable
+
+See `backlog.md` for the full deferred items list.

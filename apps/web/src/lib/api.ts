@@ -1,9 +1,12 @@
+import { User as FirebaseUser } from 'firebase/auth';
 import { getFirebaseAuth } from './firebase';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-async function getAuthHeaders(): Promise<HeadersInit> {
-  const user = getFirebaseAuth().currentUser;
+async function getAuthHeaders(
+  firebaseUser?: FirebaseUser,
+): Promise<HeadersInit> {
+  const user = firebaseUser ?? getFirebaseAuth().currentUser;
   if (!user) return {};
 
   const token = await user.getIdToken();
@@ -13,8 +16,9 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 async function request<T>(
   path: string,
   options: RequestInit = {},
+  firebaseUser?: FirebaseUser,
 ): Promise<T> {
-  const authHeaders = await getAuthHeaders();
+  const authHeaders = await getAuthHeaders(firebaseUser);
 
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -33,13 +37,21 @@ async function request<T>(
   return response.json();
 }
 
-export function get<T>(path: string): Promise<T> {
-  return request<T>(path, { method: 'GET' });
+export function get<T>(path: string, firebaseUser?: FirebaseUser): Promise<T> {
+  return request<T>(path, { method: 'GET' }, firebaseUser);
 }
 
-export function post<T>(path: string, data?: unknown): Promise<T> {
-  return request<T>(path, {
-    method: 'POST',
-    body: data ? JSON.stringify(data) : undefined,
-  });
+export function post<T>(
+  path: string,
+  data?: unknown,
+  firebaseUser?: FirebaseUser,
+): Promise<T> {
+  return request<T>(
+    path,
+    {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    },
+    firebaseUser,
+  );
 }

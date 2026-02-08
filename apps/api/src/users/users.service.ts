@@ -12,12 +12,13 @@ export class UsersService {
   async upsertFromFirebase(decoded: DecodedFirebaseToken): Promise<User> {
     const provider =
       decoded.firebase.sign_in_provider === 'github.com' ? 'github' : 'email';
+    const email = decoded.email ?? `${decoded.uid}@noreply.github.com`;
 
     const [user] = await this.db
       .insert(users)
       .values({
         firebaseUid: decoded.uid,
-        email: decoded.email!,
+        email,
         displayName: decoded.name ?? null,
         avatarUrl: decoded.picture ?? null,
         authProvider: provider,
@@ -27,7 +28,7 @@ export class UsersService {
       .onConflictDoUpdate({
         target: users.firebaseUid,
         set: {
-          email: decoded.email!,
+          email,
           displayName: decoded.name ?? null,
           avatarUrl: decoded.picture ?? null,
           authProvider: provider,

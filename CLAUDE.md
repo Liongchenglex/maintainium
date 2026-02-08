@@ -32,7 +32,7 @@ If unsure → **STOP and ASK**.
 5. Architecture & Data Design
    → 🔒 Gate: *Architecture approved*
 6. Security Review (Early) ( must follow `docs/playbook/security-playbook.md`)
-7. Implementation ( documentation need to follow `docs/playbook/technical-requirement-playbook.md`)
+7. Implementation ( coding need to follow `docs/playbook/coding-pattern.md`)
 8. UI Execution & Polish ( must follow `docs/playbook/ui-ux-playbook.md`)
 9. Security Review (Final)
 10. Test Case Definition
@@ -57,6 +57,14 @@ without updating `feature.md`.
 ---
 
 ## Phase Responsibilities (Ultra‑Compact)
+
+## Core Principles
+
+1. **Clarity over cleverness**
+2. **Consistency over novelty**
+3. **Explicit decisions over implicit assumptions**
+4. **Boring is good**
+5. **Optimize for future changes, not today’s shortcut**
 
 ### 1–2. Requirements
 
@@ -163,7 +171,7 @@ If no pattern exists:
 ## References (Must Be Used)
 
 * `docs/playbook/requirement-playbook.md`
-* `docs/playbook/technical-requirement-playbook.md`
+* `docs/playbook/coding-pattern.md`
 * `docs/playbook/security-playbook.md`
 * `docs/playbook/ui-ux-playbook.md`
 * `docs/playbook/feature-playbook.md`

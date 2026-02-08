@@ -18,6 +18,7 @@ import {
   GithubAuthProvider,
   updateProfile,
 } from 'firebase/auth';
+import { User as FirebaseUser } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebase';
 import { get } from '@/lib/api';
 
@@ -59,9 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [dbUser, setDbUser] = useState<DbUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchDbUser = useCallback(async () => {
+  const fetchDbUser = useCallback(async (firebaseUser?: FirebaseUser) => {
     try {
-      const data = await get<DbUser>('/users/me');
+      const data = await get<DbUser>('/users/me', firebaseUser);
       setDbUser(data);
     } catch {
       setDbUser(null);
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSessionCookie(firebaseUser);
 
       if (firebaseUser) {
-        await fetchDbUser();
+        await fetchDbUser(firebaseUser);
       } else {
         setDbUser(null);
       }
@@ -94,23 +95,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       );
       await updateProfile(credential.user, { displayName });
-      await fetchDbUser();
+      await fetchDbUser(credential.user);
     },
     [fetchDbUser],
   );
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
-      await fetchDbUser();
+      const credential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+      await fetchDbUser(credential.user);
     },
     [fetchDbUser],
   );
 
   const signInWithGithub = useCallback(async () => {
     const provider = new GithubAuthProvider();
-    await signInWithPopup(getFirebaseAuth(), provider);
-    await fetchDbUser();
+    const credential = await signInWithPopup(getFirebaseAuth(), provider);
+    await fetchDbUser(credential.user);
   }, [fetchDbUser]);
 
   const signOut = useCallback(async () => {
