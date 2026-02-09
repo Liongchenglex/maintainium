@@ -53,11 +53,16 @@ export class WebhooksService {
     // Verify HMAC
     const expected = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
 
+    // TODO: Remove debug logging after webhook verification is confirmed working
+    this.logger.debug(`Signature received: ${signature}`);
+    this.logger.debug(`Signature expected: ${expected}`);
+    this.logger.debug(`Raw body (first 200 chars): ${rawBody.toString('utf8').slice(0, 200)}`);
+
     const sigBuffer = Buffer.from(signature);
     const expectedBuffer = Buffer.from(expected);
 
     if (sigBuffer.length !== expectedBuffer.length) {
-      this.logger.warn(`Invalid webhook signature for project ${project.id}`);
+      this.logger.warn(`Invalid webhook signature for project ${project.id} (length mismatch: got ${sigBuffer.length}, expected ${expectedBuffer.length})`);
       return false;
     }
 

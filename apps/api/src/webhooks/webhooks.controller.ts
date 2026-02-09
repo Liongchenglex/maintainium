@@ -2,13 +2,16 @@ import {
   Controller,
   Post,
   Req,
-  Res,
   Headers,
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { WebhooksService } from './webhooks.service';
+
+interface RawBodyRequest extends Request {
+  rawBody?: Buffer;
+}
 
 @Controller('webhooks')
 export class WebhooksController {
@@ -20,37 +23,31 @@ export class WebhooksController {
   async handleGithubWebhook(
     @Headers('x-hub-signature-256') signature: string,
     @Headers('x-github-event') event: string,
-    @Req() req: Request,
-    @Res() res: Response,
+    @Req() req: RawBodyRequest,
   ) {
     if (!signature || !event) {
       throw new UnauthorizedException('Missing webhook headers');
     }
 
-    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    const rawBody = req.rawBody;
     if (!rawBody) {
+      this.logger.error('rawBody is not available on request — check rawBody: true in NestFactory.create');
       throw new UnauthorizedException('Missing raw body for signature verification');
     }
 
     const payload = req.body as Record<string, unknown>;
 
-    try {
-      const success = await this.webhooksService.verifyAndProcess(
-        signature,
-        event,
-        rawBody,
-        payload,
-      );
+    const success = await this.webhooksService.verifyAndProcess(
+      signature,
+      event,
+      rawBody,
+      payload,
+    );
 
-      if (!success) {
-        throw new UnauthorizedException('Webhook verification failed');
-      }
-
-      res.status(200).json({ received: true });
-    } catch (error) {
-      if (error instanceof UnauthorizedException) throw error;
-      this.logger.error('Webhook processing error', error);
-      throw new UnauthorizedException('Webhook processing failed');
+    if (!success) {
+      throw new UnauthorizedException('Webhook verification failed');
     }
+
+    return { received: true };
   }
 }
