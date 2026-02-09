@@ -100,6 +100,17 @@ NestJS backend running on **http://localhost:4000**.
 | ------------- | ------ | -------- | ------------------------ |
 | `/health`     | GET    | None     | Health check             |
 | `/users/me`   | GET    | Required | Returns authenticated user record |
+| `/users/me/github-token` | POST | Required | Store encrypted GitHub access token |
+| `/users/me/github-status` | GET | Required | Check GitHub connection status |
+| `/github/oauth/initiate` | GET | Required | Start GitHub OAuth flow (email users) |
+| `/github/oauth/callback` | GET | None | GitHub OAuth callback handler |
+| `/projects/repos` | GET | Required | List user's GitHub repos |
+| `/projects`   | GET    | Required | List user's connected projects |
+| `/projects`   | POST   | Required | Create project from GitHub repo |
+| `/projects/:id` | GET  | Required | Get project details |
+| `/projects/:id/tree` | GET | Required | Browse repository file tree |
+| `/projects/:id/file` | GET | Required | Get file content |
+| `/webhooks/github` | POST | HMAC | Receive GitHub webhook events |
 
 ### Web (`apps/web`)
 
@@ -110,7 +121,9 @@ Next.js frontend running on **http://localhost:3000**.
 | `/`          | Landing page with API health indicator   |
 | `/login`     | Login (email/password + GitHub OAuth)    |
 | `/signup`    | Sign up (email/password + GitHub OAuth)  |
-| `/dashboard` | Protected dashboard (empty state for M1) |
+| `/dashboard` | Protected dashboard with project cards   |
+| `/dashboard/connect` | Connect GitHub + select repo to import |
+| `/dashboard/projects/[id]` | Project detail with file browser |
 
 ## Firebase Setup
 
@@ -144,6 +157,10 @@ Enable the following in Firebase Console > Authentication > Sign-in method:
 | `FIREBASE_PRIVATE_KEY` | Firebase service account private key |
 | `PORT`                 | API port (default: 4000)           |
 | `CORS_ORIGIN`          | Allowed CORS origin (default: http://localhost:3000) |
+| `ENCRYPTION_KEY`       | 32-byte hex key for AES-256-GCM encryption |
+| `GITHUB_CLIENT_ID`     | GitHub OAuth App client ID       |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret   |
+| `WEBHOOK_BASE_URL`     | Public URL for webhook callbacks (default: http://localhost:4000) |
 
 ### Web (`apps/web/.env`)
 
@@ -182,6 +199,7 @@ pnpm --filter @maintainium/api db:studio
 | ----------------------------------- | -------------------------- |
 | `CLAUDE.md`                         | AI coding controller       |
 | `docs/features/authentication/feature.md` | Authentication feature doc |
+| `docs/features/codebase_connection/feature.md` | Codebase connection feature doc |
 | `docs/playbook/requirement-playbook.md`      | Requirement standards      |
 | `docs/playbook/technical-requirement-playbook.md` | Technical req standards |
 | `docs/playbook/security-playbook.md`         | Security review standards  |

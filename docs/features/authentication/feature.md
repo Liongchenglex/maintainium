@@ -19,8 +19,9 @@
 | `src/auth/current-user.decorator.ts` | `@CurrentUser()` param decorator — extracts `request.user` |
 | `src/auth/auth.interfaces.ts` | TypeScript interfaces for decoded token + request user |
 | `src/users/users.module.ts` | Provides UsersService, declares UsersController |
-| `src/users/users.service.ts` | `upsertFromFirebase()`, `findByFirebaseUid()`, `findById()` |
-| `src/users/users.controller.ts` | `GET /users/me` — returns authenticated user's record |
+| `src/users/users.service.ts` | `upsertFromFirebase()`, `findByFirebaseUid()`, `findById()`, `storeGithubToken()`, `getGithubToken()`, `hasGithubToken()` |
+| `src/users/users.controller.ts` | `GET /users/me`, `POST /users/me/github-token`, `GET /users/me/github-status` |
+| `src/users/dto/store-github-token.dto.ts` | DTO for GitHub token storage (M2 retrofix) |
 | `src/database/schema/users.ts` | Drizzle table definition for `users` |
 
 ### Frontend (`apps/web/`)
@@ -30,7 +31,7 @@
 | `src/lib/firebase.ts` | Firebase client SDK initialization (lazy, HMR-safe) |
 | `src/lib/api.ts` | Fetch wrapper with auto-attached Bearer token |
 | `src/lib/firebase-errors.ts` | Maps Firebase error codes to user-friendly messages |
-| `src/contexts/auth-context.tsx` | Auth context provider — `onAuthStateChanged` listener, sign up/in/out methods |
+| `src/contexts/auth-context.tsx` | Auth context provider — `onAuthStateChanged` listener, sign up/in/out methods. M2: captures GitHub OAuth token via `GithubAuthProvider.credentialFromResult()` and POSTs to `/users/me/github-token`. |
 | `src/middleware.ts` | Route protection via `__session` cookie (UX hint, not security boundary) |
 | `src/app/login/page.tsx` | Login page (server component shell) |
 | `src/app/signup/page.tsx` | Signup page (server component shell) |
@@ -189,9 +190,10 @@ Public routes:    /
 ### GitHub OAuth
 
 No user inputs — OAuth flow handled by popup.
+M2 enhancement: `provider.addScope('repo')` requests repo access. OAuth credential's access token is captured and stored via `POST /users/me/github-token`.
 
-**Output (success):** User created/updated in Firebase + PostgreSQL, redirected to `/dashboard`
-**Output (failure):** User-friendly error message displayed inline
+**Output (success):** User created/updated in Firebase + PostgreSQL, GitHub token encrypted and stored, redirected to `/dashboard`
+**Output (failure):** User-friendly error message displayed inline. Token storage failure is non-fatal (user can reconnect later).
 
 ---
 
@@ -251,7 +253,7 @@ See `docs/playbook/coding-patterns.md` for full definitions.
 1. **No email verification enforcement** — `emailVerified` is synced but not gated
 2. **No password reset flow** — Firebase supports it; can be wired up later
 3. **No server-side rate limiting** — Firebase has built-in brute-force protection; `@nestjs/throttler` deferred
-4. **No orgs/multi-tenancy** — flat user model for M1; orgs deferred to future milestone
+4. **Orgs/multi-tenancy** — M2 adds organizations and org_members tables for project ownership
 5. **Cookie-based middleware is UX only** — NOT a security boundary; backend AuthGuard is real auth
 6. **No refresh token rotation** — Firebase SDK handles token refresh automatically
 7. **GitHub private email fallback** — uses `{uid}@noreply.github.com` when email unavailable

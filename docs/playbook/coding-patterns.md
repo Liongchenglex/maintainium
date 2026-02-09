@@ -261,6 +261,83 @@ Next.js middleware checks a `__session` cookie for fast redirects.
 
 ---
 
+### B8: Encryption Service (AES-256-GCM)
+
+Sensitive values (tokens, secrets) are encrypted at rest using a global `EncryptionService`.
+
+```typescript
+// Encrypt
+const { encrypted, iv, tag } = this.encryption.encrypt(plaintext);
+
+// Decrypt
+const plaintext = this.encryption.decrypt(encrypted, iv, tag);
+```
+
+- Key from `ENCRYPTION_KEY` env var (32-byte hex)
+- Uses AES-256-GCM (authenticated encryption)
+- Store `encrypted`, `iv`, `tag` as separate columns
+- Service is in `CommonModule` (`@Global()`)
+
+**Used by:** UsersService (GitHub tokens), ProjectsService (webhook secrets)
+
+---
+
+### B9: DTO Validation (class-validator)
+
+Request bodies are validated via DTOs with `class-validator` decorators.
+
+```typescript
+import { IsString, IsNotEmpty } from 'class-validator';
+
+export class StoreGithubTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  accessToken!: string;
+}
+```
+
+- Use `!` definite assignment assertion (strict mode)
+- Whitelist + transform enabled globally via `ValidationPipe`
+- DTOs live in `<feature>/dto/` directory
+
+**Used by:** StoreGithubTokenDto, CreateProjectDto
+
+---
+
+### B10: Webhook HMAC Verification
+
+Incoming webhooks are verified using HMAC-SHA256 with timing-safe comparison.
+
+```typescript
+const expected = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
+const valid = timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+```
+
+- Requires `rawBody: true` in `NestFactory.create` options
+- Webhook secret is encrypted at rest (pattern B8)
+- Uses `crypto.timingSafeEqual` to prevent timing attacks
+- No AuthGuard — authenticated via HMAC only
+
+**Used by:** WebhooksController (GitHub push/ping events)
+
+---
+
+### F8: GitHub Error Mapping
+
+GitHub API error codes are mapped to user-friendly strings via a lookup object.
+
+```typescript
+import { getGitHubErrorMessage } from '@/lib/github-errors';
+// returns: "Your GitHub connection has expired..."
+```
+
+- Maps `GITHUB_TOKEN_EXPIRED`, `GITHUB_RATE_LIMIT`, `GITHUB_SSO_REQUIRED`
+- Unknown codes fall back to a generic message
+
+**Used by:** ConnectRepo, ProjectDetail
+
+---
+
 ## Adding a New Pattern
 
 1. Check this doc — does a pattern already exist for this concern?

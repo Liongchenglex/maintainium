@@ -18,9 +18,8 @@ import {
   GithubAuthProvider,
   updateProfile,
 } from 'firebase/auth';
-import { User as FirebaseUser } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebase';
-import { get } from '@/lib/api';
+import { get, post } from '@/lib/api';
 
 interface DbUser {
   id: string;
@@ -110,8 +109,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGithub = useCallback(async () => {
     const provider = new GithubAuthProvider();
-    const credential = await signInWithPopup(getFirebaseAuth(), provider);
-    await fetchDbUser(credential.user);
+    provider.addScope('repo');
+    const result = await signInWithPopup(getFirebaseAuth(), provider);
+
+    const oauthCredential = GithubAuthProvider.credentialFromResult(result);
+    if (oauthCredential?.accessToken) {
+      try {
+        await post(
+          '/users/me/github-token',
+          { accessToken: oauthCredential.accessToken },
+          result.user,
+        );
+      } catch {
+        // Token storage failed — user is still signed in.
+        // They can reconnect via the dashboard later.
+      }
+    }
+
+    await fetchDbUser(result.user);
   }, [fetchDbUser]);
 
   const signOut = useCallback(async () => {
