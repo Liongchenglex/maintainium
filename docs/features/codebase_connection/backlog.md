@@ -16,6 +16,12 @@ Items identified during M2 implementation that are deferred to future milestones
 
 ## Webhook Reliability
 
+### Webhook End-to-End Testing
+- **Current:** Webhook HMAC verification and event processing are implemented but untested with real GitHub webhook deliveries. Local development requires a tunnel (e.g., ngrok) to receive webhooks, which adds unnecessary complexity.
+- **Action:** Test after hosting the API on a public server. Steps: (1) set `WEBHOOK_BASE_URL` to the production/staging domain, (2) re-create a project to trigger automatic webhook registration, (3) push to the connected repo and verify `project.updatedAt` updates, (4) remove debug logging from `webhooks.service.ts` once verified.
+- **Priority:** High — test after first deployment to hosting, not blocked by any milestone
+- **Note:** Do NOT defer to post-MVP. Test as soon as the API is hosted on a public URL (staging or production). Webhook registration and verification are core to the feature and should be validated early.
+
 ### Webhook Registration Retry
 - **Current:** If webhook registration fails during project creation, the project is created with `webhookId: null`. No automatic retry.
 - **Action:** Add retry with exponential backoff (up to 3 attempts). Show "Webhook setup pending" on the project card.
@@ -62,6 +68,33 @@ Items identified during M2 implementation that are deferred to future milestones
 - **Current:** No rate limiting on project/GitHub proxy endpoints.
 - **Action:** Add `@nestjs/throttler` to prevent abuse of GitHub API proxy endpoints.
 - **Priority:** High — should be addressed before production
+
+---
+
+## Sync & Staleness
+
+### Default Branch Change Detection
+- **Current:** The default branch is captured once at project creation and stored in `projects.github_default_branch`. It is never updated afterward. If the user changes the default branch on GitHub (e.g., `main` → `develop`), file tree browsing breaks (GitHub API returns ref not found) and the project detail header shows the stale branch name.
+- **Action:** Sync the default branch on push webhook events by fetching the repo's current default branch from the GitHub API. Alternatively, listen for the `repository` webhook event (fired on settings changes including default branch).
+- **Impact:** `webhooks.service.ts` (add branch sync on push/repository events), `github.service.ts` (fetch repo details), `projects.service.ts` (update stored branch).
+- **Priority:** Medium — changing the default branch is rare, but when it happens it fully breaks file browsing for the project.
+
+---
+
+## Architecture Evolution
+
+### Migrate from GitHub OAuth App to GitHub App
+- **Current:** Using a GitHub OAuth App with user-level `repo` scope tokens. Tokens are long-lived (don't expire unless revoked). Webhooks are registered manually via GitHub API during project creation.
+- **Benefit:** GitHub Apps provide fine-grained per-repo permissions, automatic webhook management (configured in app settings, not via API), organization-level installation, and short-lived auto-refreshing tokens (no risk of stale long-lived tokens). This is the standard approach used by production apps (Semgrep, Codecov, Dependabot, etc.).
+- **Action:** Create a GitHub App, implement JWT signing for installation token generation, add token refresh logic, migrate webhook management to app-level config, update OAuth flow to GitHub App installation flow.
+- **Impact:** Touches GitHub module (OAuth → App install flow), webhook module (HMAC stays, but registration moves to app config), projects module (token refresh), frontend (install flow UI).
+- **Priority:** Medium — current OAuth App approach works fine for MVP. Consider for post-MVP when fine-grained permissions or org-level features are needed.
+
+### CMS Connection
+- **Current:** Only GitHub is supported as a source type for project connections.
+- **Action:** Add support for CMS platforms (e.g., Contentful, Strapi, Sanity, WordPress) as additional source types. This would involve: (1) new `sourceType` enum values in the projects schema, (2) a CMS module with platform-specific API clients, (3) OAuth/API key flows for each CMS platform, (4) content browsing UI adapted for CMS content models (entries, assets, content types) instead of file trees, (5) webhook/polling for content change detection.
+- **Impact:** New feature module. Requires extending the projects schema, adding a CMS module parallel to the GitHub module, and new frontend pages for CMS connection + content browsing.
+- **Priority:** Low — future milestone. Design decisions needed: which CMS platforms to support first, whether to use a unified content abstraction or platform-specific UIs.
 
 ---
 

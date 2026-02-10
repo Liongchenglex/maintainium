@@ -13,6 +13,17 @@ async function getAuthHeaders(
   return { Authorization: `Bearer ${token}` };
 }
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly statusCode?: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -31,7 +42,11 @@ async function request<T>(
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.message || `Request failed: ${response.status}`);
+    throw new ApiError(
+      body.message || `Request failed: ${response.status}`,
+      body.code,
+      response.status,
+    );
   }
 
   return response.json();

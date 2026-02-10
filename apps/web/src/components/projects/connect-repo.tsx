@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { get, post } from '@/lib/api';
+import { get, post, ApiError } from '@/lib/api';
 import { RepoListItem, GitHubRepoItem } from './repo-list-item';
 
 export function ConnectRepo() {
@@ -18,6 +18,7 @@ export function ConnectRepo() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [tokenExpired, setTokenExpired] = useState(false);
 
   const checkGithubStatus = useCallback(async () => {
     try {
@@ -48,6 +49,9 @@ export function ConnectRepo() {
         );
         setRepos(data);
       } catch (err) {
+        if (err instanceof ApiError && err.code === 'GITHUB_TOKEN_EXPIRED') {
+          setTokenExpired(true);
+        }
         setError(err instanceof Error ? err.message : 'Failed to load repositories');
       } finally {
         setLoading(false);
@@ -240,6 +244,20 @@ export function ConnectRepo() {
       </p>
 
       {error && <div style={errorStyle}>{error}</div>}
+
+      {tokenExpired && (
+        <div style={{ marginBottom: '1rem' }}>
+          {dbUser?.authProvider === 'github' ? (
+            <p style={{ color: '#666', fontSize: '0.9rem' }}>
+              Please sign out and sign in with GitHub again to refresh your token.
+            </p>
+          ) : (
+            <button onClick={handleConnectGithub} style={connectGithubBtnStyle}>
+              Reconnect GitHub
+            </button>
+          )}
+        </div>
+      )}
 
       <input
         type="text"

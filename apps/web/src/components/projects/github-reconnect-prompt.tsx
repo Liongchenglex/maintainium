@@ -1,8 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { get } from '@/lib/api';
 
 interface GitHubReconnectPromptProps {
   message?: string;
@@ -12,6 +12,7 @@ export function GitHubReconnectPrompt({
   message = 'Your GitHub connection has expired. Please reconnect to continue.',
 }: GitHubReconnectPromptProps) {
   const { dbUser } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
   const containerStyle: React.CSSProperties = {
     padding: '1.5rem',
@@ -40,15 +41,21 @@ export function GitHubReconnectPrompt({
     textDecoration: 'none',
   };
 
-  const handleReconnect = () => {
-    if (dbUser?.authProvider === 'email') {
-      window.location.href = `${API_URL}/github/oauth/initiate`;
+  const handleReconnect = async () => {
+    try {
+      const { url } = await get<{ url: string }>('/github/oauth/initiate');
+      window.location.href = url;
+    } catch {
+      setError('Failed to start GitHub reconnection. Please try again.');
     }
   };
 
   return (
     <div style={containerStyle}>
       <p style={messageStyle}>{message}</p>
+      {error && (
+        <p style={{ color: '#c62828', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{error}</p>
+      )}
       {dbUser?.authProvider === 'github' ? (
         <p style={{ color: '#666', fontSize: '0.85rem' }}>
           Please sign out and sign in with GitHub again to refresh your token.
