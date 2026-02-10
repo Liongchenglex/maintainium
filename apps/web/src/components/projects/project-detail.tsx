@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { get } from '@/lib/api';
+import { get, ApiError } from '@/lib/api';
 import { BreadcrumbNav } from './breadcrumb-nav';
 import { FileTree } from './file-tree';
 import { FileViewer } from './file-viewer';
+import { GitHubReconnectPrompt } from './github-reconnect-prompt';
 
 interface ProjectData {
   id: string;
@@ -28,6 +29,7 @@ export function ProjectDetail() {
   const [viewingFile, setViewingFile] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tokenExpired, setTokenExpired] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -139,13 +141,16 @@ export function ProjectDetail() {
         />
       </div>
 
-      {viewingFile ? (
-        <FileViewer projectId={projectId} path={viewingFile} />
+      {tokenExpired ? (
+        <GitHubReconnectPrompt />
+      ) : viewingFile ? (
+        <FileViewer projectId={projectId} path={viewingFile} onTokenExpired={() => setTokenExpired(true)} />
       ) : (
         <FileTree
           projectId={projectId}
           path={currentPath}
           onNavigate={handleNavigate}
+          onTokenExpired={() => setTokenExpired(true)}
         />
       )}
     </div>

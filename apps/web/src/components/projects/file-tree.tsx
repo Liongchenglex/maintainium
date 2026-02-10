@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { get } from '@/lib/api';
+import { get, ApiError } from '@/lib/api';
 
 interface TreeEntry {
   name: string;
@@ -14,9 +14,10 @@ interface FileTreeProps {
   projectId: string;
   path: string;
   onNavigate: (path: string, type: 'directory' | 'file') => void;
+  onTokenExpired?: () => void;
 }
 
-export function FileTree({ projectId, path, onNavigate }: FileTreeProps) {
+export function FileTree({ projectId, path, onNavigate, onTokenExpired }: FileTreeProps) {
   const [entries, setEntries] = useState<TreeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,9 @@ export function FileTree({ projectId, path, onNavigate }: FileTreeProps) {
       );
       setEntries(data);
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'GITHUB_TOKEN_EXPIRED') {
+        onTokenExpired?.();
+      }
       setError(err instanceof Error ? err.message : 'Failed to load directory');
     } finally {
       setLoading(false);

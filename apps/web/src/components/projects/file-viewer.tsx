@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { get } from '@/lib/api';
+import { get, ApiError } from '@/lib/api';
 
 interface FileData {
   name: string;
@@ -15,9 +15,10 @@ interface FileData {
 interface FileViewerProps {
   projectId: string;
   path: string;
+  onTokenExpired?: () => void;
 }
 
-export function FileViewer({ projectId, path }: FileViewerProps) {
+export function FileViewer({ projectId, path, onTokenExpired }: FileViewerProps) {
   const [file, setFile] = useState<FileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +33,9 @@ export function FileViewer({ projectId, path }: FileViewerProps) {
         );
         setFile(data);
       } catch (err) {
+        if (err instanceof ApiError && err.code === 'GITHUB_TOKEN_EXPIRED') {
+          onTokenExpired?.();
+        }
         setError(err instanceof Error ? err.message : 'Failed to load file');
       } finally {
         setLoading(false);
