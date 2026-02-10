@@ -40,16 +40,24 @@ Without a pre-indexed codebase knowledge layer, every agent would re-parse the e
    g. Cleans up temporary directory
 5. User visits the project detail page and sees the Application Profile populated
 
-### Flow B: Incremental Update (on push webhook)
+### Flow B: Incremental Update (on push to default branch)
 
-1. GitHub sends a push webhook to `POST /webhooks/github` (M2)
-2. `WebhooksService` verifies the HMAC signature and processes the event
-3. `WebhooksService` emits a `project.pushed` event with the push payload (including changed file list)
-4. `CodebaseAnalysisService` listens for the event:
-   a. Downloads the updated tarball (full re-download for simplicity in M3)
-   b. Re-runs analysis and overwrites the existing `codebase_analyses` record
-   c. Updates `analyzedAt` timestamp
-5. Project detail page reflects the updated analysis
+**Trigger:** A developer pushes code to the connected repository's **default branch** (e.g., `git push origin main` from their terminal, or a PR is merged into `main` on GitHub).
+
+1. Developer pushes commits to the default branch of the connected GitHub repository
+2. GitHub detects the push and sends a webhook `POST` to our API at `/webhooks/github` (webhook was registered during project creation in M2)
+3. `WebhooksService` verifies the HMAC signature and identifies the project by `repository.id` in the payload
+4. `WebhooksService` checks the push `ref` against the project's stored `githubDefaultBranch`:
+   - If `ref` matches the default branch (e.g., `refs/heads/main`) → emit `project.pushed` event
+   - If `ref` is a non-default branch (e.g., `refs/heads/feature/xyz`) → log and skip, no re-analysis triggered
+5. `CodebaseAnalysisService` listens for the `project.pushed` event:
+   a. Checks if an analysis is already running for this project → if yes, skip (debounce)
+   b. Downloads the updated tarball (full re-download for simplicity in M3)
+   c. Re-runs all analysis phases and overwrites the existing `codebase_analyses` record
+   d. Updates `analyzedAt` timestamp
+6. Next time the user visits the project detail page, they see the updated analysis results
+
+**Note:** The developer does not need to be logged into MaintainAI or take any action in the dashboard. The webhook fires automatically from GitHub whenever code is pushed.
 
 ### Flow C: Manual Re-scan
 
