@@ -169,7 +169,10 @@ This phase uses an LLM to generate plain-language understanding of key files and
 The LLM produces per file:
 - `purpose`: One-line plain-language description (e.g., "Handles GitHub OAuth callback, exchanges authorization code for access token, encrypts and stores the token")
 - `businessContext`: What role this file plays in the application's business logic (e.g., "Part of the GitHub connection flow — this is the server-side callback that completes OAuth after GitHub redirects the user back")
-- `keyBehaviors`: List of 2–5 key things this file does, described in plain language (e.g., ["Validates HMAC state parameter to prevent CSRF", "Exchanges OAuth code for GitHub access token", "Encrypts token via EncryptionService before storage", "Redirects user to frontend dashboard on success"])
+- `feature`: Which feature this file belongs to (e.g., "github-connection", "authentication", "project-management"). This enables downstream agents to correlate files to features.
+- `functions`: Array of function-level descriptions for each exported function/method in the file. Each entry has:
+  - `name`: Function or method name (e.g., "handleCallback")
+  - `description`: One-line description of what the function does (e.g., "Exchanges OAuth authorization code for a GitHub access token and stores it encrypted")
 
 **Project-Level LLM Analysis** — after all per-file analyses complete, a second LLM call produces:
 - `architectureSummary`: 3–5 sentence overview of how the application is structured (e.g., "Turborepo monorepo with a NestJS API backend and Next.js frontend. Authentication uses Firebase Auth with a NestJS AuthGuard pattern. Data is stored in PostgreSQL via Drizzle ORM. GitHub integration uses OAuth App tokens for repository access.")
@@ -294,7 +297,7 @@ These enhance analysis quality but are not blocking for M4 or M6.
 - **AC-P1-9**: Given a completed analysis with LLM enabled, then `llmIntelligence.architectureSummary` contains a 3–5 sentence overview of the application architecture.
 - **AC-P1-10**: Given a completed analysis with LLM enabled, then `llmIntelligence.businessFlows` contains at least one detected end-to-end flow with a name, description, and ordered list of involved files.
 - **AC-P1-11**: Given an analysis where `LLM_API_KEY` is not set, then the analysis completes successfully with static analysis results only and LLM fields are null.
-- **AC-P1-12**: Given a file whose LLM call fails, then the file retains its static metadata (path, imports, exports, category) and only the LLM fields (`purpose`, `businessContext`, `keyBehaviors`) are null.
+- **AC-P1-12**: Given a file whose LLM call fails, then the file retains its static metadata (path, imports, exports, category) and only the LLM fields (`purpose`, `businessContext`, `feature`, `functions`) are null.
 
 ### P2: Patterns & Conventions + Security Metadata + Content & Structure
 
@@ -367,7 +370,7 @@ These enhance analysis quality but are not blocking for M4 or M6.
 | P1.3 | Data Model analyzer (ORM schemas, interfaces, validation) | Pending |
 | P1.4 | LLM service integration (configurable provider, model, API key) | Pending |
 | P1.5 | Selective file picker (category + blast radius criteria) | Pending |
-| P1.6 | Per-file LLM analysis (purpose, business context, key behaviors) | Pending |
+| P1.6 | Per-file LLM analysis (purpose, business context, feature, functions) | Pending |
 | P1.7 | Project-level LLM analysis (architecture summary, business flows) | Pending |
 
 ### P2: Quality & Security Metadata (enhances agent accuracy)
@@ -448,11 +451,9 @@ These enhance analysis quality but are not blocking for M4 or M6.
   "llm": {
     "purpose": "NestJS guard that validates Firebase ID tokens on protected routes",
     "businessContext": "Core authentication gate — every protected API endpoint passes through this guard before reaching the handler",
-    "keyBehaviors": [
-      "Extracts Bearer token from Authorization header",
-      "Verifies token via FirebaseAdminService.verifyIdToken()",
-      "Upserts user record via UsersService on successful verification",
-      "Attaches user object to request for downstream access via @CurrentUser()"
+    "feature": "authentication",
+    "functions": [
+      { "name": "canActivate", "description": "Extracts Bearer token from Authorization header, verifies it via FirebaseAdminService, upserts user record, and attaches user to request" }
     ]
   }
 }]

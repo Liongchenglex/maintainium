@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { eq, and, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { DRIZZLE } from '../database/database.constants';
@@ -18,6 +19,7 @@ import { GitHubService } from '../github/github.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { EncryptionService } from '../common/encryption.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { ANALYSIS_EVENTS } from '../analysis/analysis.constants';
 
 @Injectable()
 export class ProjectsService {
@@ -31,6 +33,7 @@ export class ProjectsService {
     private organizationsService: OrganizationsService,
     private encryption: EncryptionService,
     private configService: ConfigService,
+    private eventEmitter: EventEmitter2,
   ) {
     this.webhookBaseUrl = this.configService.get<string>(
       'WEBHOOK_BASE_URL',
@@ -119,6 +122,12 @@ export class ProjectsService {
         `Failed to register webhook for project ${project.id}: ${error}`,
       );
     }
+
+    // Trigger codebase analysis
+    this.eventEmitter.emit(ANALYSIS_EVENTS.PROJECT_CREATED, {
+      projectId: project.id,
+      userId: user.id,
+    });
 
     return project;
   }

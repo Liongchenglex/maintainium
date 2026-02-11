@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { CommonModule } from './common/common.module';
@@ -9,10 +10,12 @@ import { GitHubModule } from './github/github.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { AnalysisModule } from './analysis/analysis.module';
 
 @Module({
   imports: [
     ConfigModule,
+    EventEmitterModule.forRoot(),
     DatabaseModule,
     CommonModule,
     AuthModule,
@@ -22,6 +25,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     OrganizationsModule,
     ProjectsModule,
     WebhooksModule,
+    AnalysisModule,
   ],
 })
 export class AppModule {}

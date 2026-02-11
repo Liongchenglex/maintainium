@@ -7,6 +7,7 @@ import { BreadcrumbNav } from './breadcrumb-nav';
 import { FileTree } from './file-tree';
 import { FileViewer } from './file-viewer';
 import { GitHubReconnectPrompt } from './github-reconnect-prompt';
+import { AnalysisOverview } from '../analysis/analysis-overview';
 
 interface ProjectData {
   id: string;
@@ -20,6 +21,8 @@ interface ProjectData {
   webhookId: number | null;
 }
 
+type Tab = 'files' | 'analysis';
+
 export function ProjectDetail() {
   const params = useParams();
   const projectId = params.id as string;
@@ -30,6 +33,7 @@ export function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tokenExpired, setTokenExpired] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('files');
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -88,6 +92,28 @@ export function ProjectDetail() {
     fontWeight: 500,
   };
 
+  const tabContainerStyle: React.CSSProperties = {
+    display: 'flex',
+    gap: '0',
+    borderBottom: '2px solid #e0e0e0',
+    marginBottom: '1rem',
+  };
+
+  const tabStyle = (isActive: boolean): React.CSSProperties => ({
+    padding: '0.5rem 1rem',
+    fontSize: '0.9rem',
+    fontWeight: isActive ? 600 : 400,
+    color: isActive ? '#1565c0' : '#666',
+    borderBottom: isActive ? '2px solid #1565c0' : '2px solid transparent',
+    marginBottom: '-2px',
+    cursor: 'pointer',
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderBottomStyle: 'solid',
+    borderBottomWidth: '2px',
+    borderBottomColor: isActive ? '#1565c0' : 'transparent',
+  });
+
   const breadcrumbContainer: React.CSSProperties = {
     marginBottom: '1rem',
     padding: '0.5rem 0',
@@ -133,25 +159,49 @@ export function ProjectDetail() {
         </div>
       </div>
 
-      <div style={breadcrumbContainer}>
-        <BreadcrumbNav
-          path={viewingFile || currentPath}
-          onNavigate={(p) => handleNavigate(p)}
-          repoName={project.githubRepoName || project.name}
-        />
+      {/* Tabs */}
+      <div style={tabContainerStyle}>
+        <button
+          style={tabStyle(activeTab === 'files')}
+          onClick={() => setActiveTab('files')}
+        >
+          Files
+        </button>
+        <button
+          style={tabStyle(activeTab === 'analysis')}
+          onClick={() => setActiveTab('analysis')}
+        >
+          Analysis
+        </button>
       </div>
 
-      {tokenExpired ? (
-        <GitHubReconnectPrompt />
-      ) : viewingFile ? (
-        <FileViewer projectId={projectId} path={viewingFile} onTokenExpired={() => setTokenExpired(true)} />
-      ) : (
-        <FileTree
-          projectId={projectId}
-          path={currentPath}
-          onNavigate={handleNavigate}
-          onTokenExpired={() => setTokenExpired(true)}
-        />
+      {activeTab === 'files' && (
+        <>
+          <div style={breadcrumbContainer}>
+            <BreadcrumbNav
+              path={viewingFile || currentPath}
+              onNavigate={(p) => handleNavigate(p)}
+              repoName={project.githubRepoName || project.name}
+            />
+          </div>
+
+          {tokenExpired ? (
+            <GitHubReconnectPrompt />
+          ) : viewingFile ? (
+            <FileViewer projectId={projectId} path={viewingFile} onTokenExpired={() => setTokenExpired(true)} />
+          ) : (
+            <FileTree
+              projectId={projectId}
+              path={currentPath}
+              onNavigate={handleNavigate}
+              onTokenExpired={() => setTokenExpired(true)}
+            />
+          )}
+        </>
+      )}
+
+      {activeTab === 'analysis' && (
+        <AnalysisOverview projectId={projectId} />
       )}
     </div>
   );

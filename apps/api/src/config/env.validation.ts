@@ -17,5 +17,8 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
     );
   }
 
+  // Optional: LLM configuration (analysis works without these, LLM phases are skipped)
+  // LLM_API_KEY, LLM_PROVIDER (default: anthropic), LLM_MODEL (default: claude-sonnet-4-5-20250929)
+
   return config;
 }

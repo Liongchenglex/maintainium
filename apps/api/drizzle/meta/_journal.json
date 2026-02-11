@@ -15,6 +15,13 @@
       "when": 1770542763028,
       "tag": "0001_flat_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770708516689,
+      "tag": "0002_known_whistler",
+      "breakpoints": true
     }
   ]
 }

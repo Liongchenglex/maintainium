@@ -111,6 +111,8 @@ NestJS backend running on **http://localhost:4000**.
 | `/projects/:id/tree` | GET | Required | Browse repository file tree |
 | `/projects/:id/file` | GET | Required | Get file content |
 | `/webhooks/github` | POST | HMAC | Receive GitHub webhook events |
+| `/projects/:id/analyze` | POST | Required | Trigger manual codebase re-scan |
+| `/projects/:id/analysis` | GET | Required | Get codebase analysis results |
 
 ### Web (`apps/web`)
 
@@ -161,6 +163,9 @@ Enable the following in Firebase Console > Authentication > Sign-in method:
 | `GITHUB_CLIENT_ID`     | GitHub OAuth App client ID       |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret   |
 | `WEBHOOK_BASE_URL`     | Public URL for webhook callbacks (default: http://localhost:4000) |
+| `LLM_API_KEY`          | Anthropic API key for LLM analysis (optional) |
+| `LLM_PROVIDER`         | LLM provider (default: anthropic) (optional) |
+| `LLM_MODEL`            | LLM model (default: claude-sonnet-4-5-20250929) (optional) |
 
 ### Web (`apps/web/.env`)
 
@@ -200,6 +205,8 @@ pnpm --filter @maintainium/api db:studio
 | `CLAUDE.md`                         | AI coding controller       |
 | `docs/features/authentication/feature.md` | Authentication feature doc |
 | `docs/features/codebase_connection/feature.md` | Codebase connection feature doc |
+| `docs/features/codebase_agent/feature.md` | Codebase intelligence agent feature doc |
+| `docs/features/codebase_agent/requirements.md` | Codebase agent requirements |
 | `docs/playbook/requirement-playbook.md`      | Requirement standards      |
 | `docs/playbook/technical-requirement-playbook.md` | Technical req standards |
 | `docs/playbook/security-playbook.md`         | Security review standards  |

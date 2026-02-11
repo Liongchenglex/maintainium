@@ -338,6 +338,90 @@ import { getGitHubErrorMessage } from '@/lib/github-errors';
 
 ---
 
+### B11: Event-Driven Background Jobs
+
+Async background processing uses `@nestjs/event-emitter` for fire-and-forget tasks triggered by user actions.
+
+```typescript
+// Emit from service
+import { EventEmitter2 } from '@nestjs/event-emitter';
+this.eventEmitter.emit('project.created', { projectId, userId });
+
+// Listen in handler service
+@OnEvent('project.created')
+async handleProjectCreated(payload: ProjectCreatedPayload): Promise<void> {
+  await this.runAnalysis(payload.projectId, payload.userId);
+}
+```
+
+- Events are defined as string constants in a `<feature>.constants.ts` file
+- Listener methods are `async` — errors in listeners don't propagate to the emitter
+- Concurrency guards check for already-running work before starting new jobs
+- EventEmitterModule.forRoot() is registered in AppModule
+
+**Used by:** AnalysisService (triggered by project creation, push webhook, manual re-scan)
+
+---
+
+### B12: LLM Service Integration
+
+LLM calls use a configurable service with graceful degradation when API key is not set.
+
+```typescript
+// Check availability before calling
+if (!this.llmService.isAvailable()) {
+  return null; // Skip LLM analysis, continue with static results
+}
+
+// Call with retry on rate limits
+const result = await this.llmService.generateFileAnalysis(context);
+```
+
+- Provider/model/key configured via `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` env vars
+- All three are optional — app starts and operates without them
+- Exponential backoff retry (max 3) on 429 rate limit responses
+- Per-call timeout of 30 seconds
+- LLM responses are parsed as JSON with defensive handling
+
+**Used by:** LlmIntelligenceAnalyzer (per-file and project-level analysis)
+
+---
+
+### B13: Anthropic Prompt Caching
+
+When making batched LLM calls that share the same context (e.g., per-file analysis across 20-50 files), use Anthropic prompt caching to reduce cost by ~88%.
+
+```typescript
+// 1. Build shared system cache blocks once before the batch
+const systemCache = this.llmService.buildFileAnalysisSystemCache(projectContext);
+
+// 2. Pass the same systemCache to each per-file call
+for (const file of selectedFiles) {
+  const result = await this.llmService.generateFileAnalysisWithCache(fileContext, systemCache);
+}
+
+// 3. Log cache efficiency after the batch
+const stats = this.llmService.getCacheStats();
+this.logger.log(`Cache writes: ${stats.writes}, reads: ${stats.reads}`);
+```
+
+How it works:
+- Shared context (instructions + project metadata) is sent as `system` messages with `cache_control: { type: 'ephemeral' }`
+- First call creates the cache (25% surcharge on those tokens)
+- Subsequent calls with the identical system prefix hit the cache (90% discount)
+- Net savings: ~88% on shared context tokens across 20-50 calls
+- Cache lives on Anthropic's servers — 5-minute TTL, refreshed on each hit
+- Not browser-based or client-side — survives any client restart
+
+Requirements:
+- System message must be >1024 tokens for Sonnet models to be cache-eligible
+- `cache_control` must be on the last content block that you want cached
+- Only the system message prefix is cached; user messages vary per call
+
+**Used by:** LlmIntelligenceAnalyzer (per-file batch analysis with shared project context)
+
+---
+
 ## Adding a New Pattern
 
 1. Check this doc — does a pattern already exist for this concern?
