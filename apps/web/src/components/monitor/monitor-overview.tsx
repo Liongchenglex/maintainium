@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { get, post, patch, ApiError } from '@/lib/api';
 import { Spinner } from '../ui/spinner';
 
@@ -85,6 +86,7 @@ export function MonitorOverview({
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('');
   const [scannerFilter, setScannerFilter] = useState('');
   const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [checkingLive, setCheckingLive] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -183,6 +185,18 @@ export function MonitorOverview({
     }
   };
 
+  const handleLiveCheck = async () => {
+    setCheckingLive(true);
+    try {
+      await post(`/projects/${projectId}/live-check`);
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to run live check');
+    } finally {
+      setCheckingLive(false);
+    }
+  };
+
   // ── Severity summary ──
 
   const severityCounts = findings.reduce<Record<string, number>>(
@@ -253,6 +267,19 @@ export function MonitorOverview({
               style={buttonStyle}
             >
               {savingUrl ? 'Saving...' : 'Update'}
+            </button>
+            <button
+              onClick={handleLiveCheck}
+              disabled={checkingLive}
+              style={{ ...buttonStyle, backgroundColor: '#e3f2fd', borderColor: '#90caf9', color: '#1565c0' }}
+            >
+              {checkingLive ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Spinner color="#1565c0" size={12} /> Checking...
+                </span>
+              ) : (
+                'Check Now'
+              )}
             </button>
           </div>
         ) : (
@@ -432,6 +459,7 @@ export function MonitorOverview({
                   <FindingRow
                     key={finding.id}
                     finding={finding}
+                    projectId={projectId}
                     onDismiss={handleDismiss}
                     dismissingId={dismissingId}
                   />
@@ -472,13 +500,16 @@ function ScanStatusBadge({ status }: { status: string }) {
 
 function FindingRow({
   finding,
+  projectId,
   onDismiss,
   dismissingId,
 }: {
   finding: FindingData;
+  projectId: string;
   onDismiss: (id: string) => void;
   dismissingId: string | null;
 }) {
+  const router = useRouter();
   const colors = SEVERITY_COLORS[finding.severity];
 
   return (
@@ -533,18 +564,36 @@ function FindingRow({
         </span>
       </div>
       {finding.status === 'open' && (
-        <button
-          onClick={() => onDismiss(finding.id)}
-          disabled={dismissingId === finding.id}
-          style={{
-            ...buttonStyle,
-            fontSize: '0.75rem',
-            padding: '0.25rem 0.6rem',
-            flexShrink: 0,
-          }}
-        >
-          {dismissingId === finding.id ? '...' : 'Dismiss'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+          {finding.severity !== 'info' && (
+            <button
+              onClick={() => router.push(`/dashboard/projects/${projectId}/investigate/${finding.id}`)}
+              style={{
+                ...buttonStyle,
+                fontSize: '0.75rem',
+                padding: '0.25rem 0.6rem',
+                backgroundColor: '#f3e8ff',
+                borderColor: '#d8b4fe',
+                color: '#7c3aed',
+                cursor: 'pointer',
+              }}
+              title="AI agent will investigate and propose a fix"
+            >
+              Investigate
+            </button>
+          )}
+          <button
+            onClick={() => onDismiss(finding.id)}
+            disabled={dismissingId === finding.id}
+            style={{
+              ...buttonStyle,
+              fontSize: '0.75rem',
+              padding: '0.25rem 0.6rem',
+            }}
+          >
+            {dismissingId === finding.id ? '...' : 'Dismiss'}
+          </button>
+        </div>
       )}
     </div>
   );

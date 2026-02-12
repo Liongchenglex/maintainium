@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { get, ApiError } from '@/lib/api';
 import { BreadcrumbNav } from './breadcrumb-nav';
 import { FileTree } from './file-tree';
@@ -27,6 +27,7 @@ type Tab = 'files' | 'analysis' | 'monitor';
 
 export function ProjectDetail() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
 
   const [project, setProject] = useState<ProjectData | null>(null);
@@ -35,7 +36,11 @@ export function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tokenExpired, setTokenExpired] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('files');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'monitor' || tab === 'analysis') return tab;
+    return 'files';
+  });
 
   useEffect(() => {
     const fetchProject = async () => {
