@@ -7,10 +7,12 @@
 ## Data Flow Pipeline
 
 ```
-Monitor → Orchestrator → Triage → Orchestrator → Implementation → Orchestrator → Validation → Orchestrator → Deployment
+Monitor → Orchestrator → Triage → Feature BA (×N) → Orchestrator → Implementation → Orchestrator → Validation → Orchestrator → Deployment
 ```
 
 The Orchestrator sits at the centre of every handoff. Agents never call each other directly — they communicate through the Orchestrator, which manages the workflow state machine.
+
+The Triage Agent classifies and identifies the affected feature. The per-feature BA Agent (one per codebase feature) performs deep domain analysis before the Orchestrator routes to Implementation.
 
 ---
 
@@ -19,7 +21,7 @@ The Orchestrator sits at the centre of every handoff. Agents never call each oth
 | Layer | Purpose | Agents |
 |-------|---------|--------|
 | **Control Layer** | Coordination & routing | Orchestrator Agent |
-| **Detection Layer** | Issue discovery & classification | Monitor Agent, Triage Agent (BA) |
+| **Detection Layer** | Issue discovery & classification | Monitor Agent, Triage Agent, Feature BA Agents (×N) |
 | **Knowledge Layer** | Shared context & documentation | Codebase Intelligence Agent |
 | **Execution Layer** | Fix, validate & deploy | Implementation Agent, Validation Agent, Deployment Agent |
 
@@ -63,7 +65,8 @@ Maintains a workflow state machine for every active issue. Reads from Codebase I
 |-----------|-------|-------------|
 | ← receives | Monitor Agent | Receives detected issues and alert events |
 | → sends | Triage Agent | Routes incoming tickets/emails for classification |
-| ← receives | Triage Agent | Receives classification result + routing recommendation |
+| ← receives | Triage Agent | Receives classification result + identified feature |
+| ← receives | Feature BA Agent | Receives enriched context package with root cause analysis |
 | ← reads | Codebase Intelligence | Reads codebase context to determine which specialist to assign |
 | → sends | Implementation Agent | Assigns implementation tasks with full context package |
 | → sends | Validation Agent | Triggers validation after implementation completes |
@@ -142,16 +145,32 @@ Reads the Codebase Intelligence layer to understand what dependencies exist, wha
 
 ---
 
-## 3. 📋 Triage Agent (BA)
+## 3. 📋 Triage Agent + Per-Feature BA Agents
 
 **Layer:** Detection
-**Tagline:** *Classifies every incoming request*
+**Tagline:** *Classify, route, and deeply understand every issue*
 
-### Purpose
+### Architecture: Two-Layer BA Model
 
-Acts as the AI business analyst. Ingests incoming tickets from Jira, Linear, support emails, and user-submitted visual annotations. Classifies each into a category and routes to the appropriate handler. Enriches tickets with codebase context before handoff.
+The Detection Layer uses a two-layer design:
 
-### Triggers
+1. **Triage Agent (global, single instance)** — Classifies incoming issues and identifies which feature is affected
+2. **Feature BA Agents (per feature, N instances)** — SME specialists that perform deep domain analysis within their feature
+
+```
+Incoming Issue → Triage Agent → Feature BA Agent → Orchestrator → Implementation Agent
+                 (classify)    (deep analysis)     (route)        (fix)
+```
+
+If the Codebase Intelligence Agent identifies 5 features, there are 5 Feature BA agents, each an SME for their domain.
+
+---
+
+### 3a. Triage Agent (Global Classifier)
+
+**Purpose:** First-pass classification and feature routing. Ingests incoming tickets from Jira, Linear, support emails, and user-submitted visual annotations. Classifies each into a category and identifies which feature is affected.
+
+#### Triggers
 
 - New Jira/Linear ticket created (webhook)
 - Support email received (email integration)
@@ -159,48 +178,124 @@ Acts as the AI business analyst. Ingests incoming tickets from Jira, Linear, sup
 - Monitor Agent detects an issue that needs classification
 - Manual submission via dashboard
 
-### Inputs & Outputs
+#### Inputs & Outputs
 
-**Inputs:** Raw ticket/email content, screenshots and attachments, user annotations from Visual Reporter, Codebase Intelligence context
+**Inputs:** Raw ticket/email content, screenshots and attachments, user annotations from Visual Reporter, feature list from Codebase Intelligence
 
-**Outputs:** Classified ticket with category, enriched context package, routing recommendation, knowledge gap auto-response (if applicable)
+**Outputs:** Classification category, identified feature name, routed to correct Feature BA Agent
 
-### Schedule
-
-Event-driven — processes incoming items within 30 seconds of receipt.
-
-### Classification Categories
+#### Classification Categories
 
 | Category | Routed To | Description |
 |----------|-----------|-------------|
-| **Bug / Code Fix** | Implementation Agent | Defect causing incorrect behaviour. Includes regression bugs. |
+| **Bug / Code Fix** | Feature BA Agent → Implementation Agent | Defect causing incorrect behaviour. Includes regression bugs. |
 | **User Knowledge Gap** | Auto-response → User | User doesn't know how to use an existing feature. Generates guided walkthrough. |
-| **Configuration Issue** | Implementation Agent (simple) or Guided Fix | Code is correct but settings/env vars/permissions are wrong. |
+| **Configuration Issue** | Feature BA Agent → Implementation Agent (simple) or Guided Fix | Code is correct but settings/env vars/permissions are wrong. |
 | **New Requirement** | Escalate to human with estimate | Feature or behaviour that doesn't exist yet. Advisory only. |
 | **Duplicate** | Link to existing ticket | Same issue already reported. Merge and notify reporter. |
 
-### Context & Knowledge Access
+#### Feature Identification
 
-Reads Codebase Intelligence to understand what components exist, what similar tickets have been resolved before, and what the affected area of code looks like. Cross-references against a pattern database of past classifications.
+The Triage Agent identifies the affected feature by matching issue content against the feature map derived from `file_registry[].llm.feature`:
 
-### Interactions
+- Keyword matching against feature names and file purposes
+- Matching mentioned file paths, API routes, or UI pages to their owning feature
+- LLM classification when keyword matching is ambiguous
+
+#### Interactions
 
 | Direction | Agent | Description |
 |-----------|-------|-------------|
-| ← reads | Codebase Intelligence | Reads file documentation and schema context to understand affected areas |
-| → sends | Orchestrator | Returns classification + enriched context package for routing |
+| ← reads | Codebase Intelligence | Reads feature list and file purposes to identify affected feature |
+| → sends | Feature BA Agent | Routes classified issue to the correct Feature BA |
+| → sends | Orchestrator | Returns classification for lifecycle tracking |
 
-### Improvements & Notes
+---
 
-- Add a "Duplicate" classification — if a similar ticket was already filed, link them instead of creating redundant work
-- Confidence score on classification: if below 70%, flag for human BA review instead of auto-routing
+### 3b. Feature BA Agents (Per-Feature SME)
+
+**Purpose:** Domain expert for a specific feature. Each Feature BA knows every file, API route, data model, dependency, and business flow within its feature. Performs deep analysis to produce an enriched context package for the Implementation Agent.
+
+#### How Features Are Discovered
+
+Features are derived from the Codebase Intelligence Agent's LLM analysis. Each file is tagged with a `feature` name (kebab-case) via `file_registry[].llm.feature`:
+
+```
+authentication         → auth.guard.ts, firebase-admin.service.ts, ...
+github-connection      → github.service.ts, github.controller.ts, ...
+project-management     → projects.service.ts, projects.controller.ts, ...
+codebase-intelligence  → analysis.service.ts, all analyzers, ...
+webhook-processing     → webhooks.service.ts, webhooks.controller.ts, ...
+```
+
+**One Feature BA per unique feature name.** If the LLM identifies 5 features, there are 5 Feature BAs.
+
+#### Feature BA Context
+
+Each Feature BA is initialized with a context package derived from `codebase_analyses`:
+
+| Context | Source | Purpose |
+|---|---|---|
+| Feature files | `file_registry[]` filtered by `llm.feature` | Know every file in the feature |
+| File purposes | `file_registry[].llm.purpose` + `llm.businessContext` | Understand what each file does |
+| Internal dependencies | `dependency_graph.edges` where both source and target are in the feature | Understand internal structure |
+| Cross-feature dependencies | `dependency_graph.edges` where one side is outside the feature | Understand blast radius beyond feature |
+| API routes | `api_surface.routes[]` filtered by `handlerFile` in feature | Know the feature's API surface |
+| Data model | `data_model.schemas[]` filtered by source files in feature | Know the feature's data ownership |
+| Business flows | `llm_intelligence.businessFlows[]` involving files in feature | Understand end-to-end flows |
+| Blast radius | `dependency_graph.blastRadius` for files in feature | Assess change impact |
+
+#### What a Feature BA Produces
+
+For each incoming issue, the Feature BA produces an **enriched context package**:
+
+```
+{
+  rootCauseHypothesis:    "The OAuth token refresh is not retrying on 401...",
+  affectedFiles:          ["src/github/github.service.ts", "src/common/encryption.service.ts"],
+  affectedRoutes:         ["GET /projects/:id/tree", "GET /projects/:id/file"],
+  blastRadius:            { "github.service.ts": 14, "encryption.service.ts": 8 },
+  relatedBusinessFlows:   ["GitHub OAuth Token Flow", "File Browsing Flow"],
+  crossFeatureRisk:       ["project-management depends on github.service.ts"],
+  suggestedApproach:      "Add retry with exponential backoff in github.service.ts...",
+  riskAssessment:         "medium — touches shared encryption service"
+}
+```
+
+#### Interactions
+
+| Direction | Agent | Description |
+|-----------|-------|-------------|
+| ← receives | Triage Agent | Receives classified issue routed to this feature |
+| ← reads | Codebase Intelligence | Reads feature-scoped context (files, graph, routes, models) |
+| → sends | Orchestrator | Returns enriched context package for Implementation Agent routing |
+
+#### Lifecycle
+
+- **Created:** When analysis completes and features are extracted from `file_registry`
+- **Updated:** On re-analysis (features may be added, removed, or renamed)
+- **Context refresh:** Feature BA context is rebuilt from the latest `codebase_analyses` on each re-analysis
+
+---
+
+### Improvements & Notes (Both Triage + Feature BAs)
+
+- Confidence score on Triage classification: if below 70%, flag for human review instead of auto-routing
 - Knowledge gap responses should include a "This didn't help" button that reclassifies to Bug/Code Fix
-- Email integration is powerful — customers forward support emails and the BA Agent handles triage automatically
+- Feature BAs should learn from resolved issues — track which hypotheses were correct to improve over time
+- Cross-feature issues (affecting 2+ features): Triage identifies the primary feature, that BA coordinates with other affected BAs
 
 ### Open Questions
 
-- Should the Triage Agent also estimate effort/cost, or leave that to the Implementation Agent?
-- How to handle ambiguous tickets that could be either a bug or a knowledge gap?
+| # | Question |
+|---|---|
+| 1 | Should the Triage Agent also estimate effort/cost, or leave that to the Feature BA? |
+| 2 | How to handle ambiguous tickets that could be either a bug or a knowledge gap? |
+| 3 | Feature name normalization: accept LLM output as-is, normalize via second LLM pass, or let users define/edit? |
+| 4 | Untagged files (no LLM analysis): assign to "shared/infrastructure" pseudo-feature, or run LLM to get tags? |
+| 5 | Cross-cutting files (e.g., database.module.ts): assign to primary feature, duplicate into multiple BA contexts, or create a "shared" BA? |
+| 6 | Feature count scaling: what if LLM identifies 50 features? Cap at N? Merge small features? |
+| 7 | BA persistence: ephemeral (rebuild context per issue) or long-lived (maintain memory across issues)? |
 
 ---
 
@@ -469,8 +564,13 @@ Reads deployment configuration from Codebase Intelligence: CI/CD pipeline (Verce
 | 1 | Orchestrator | Should the Orchestrator have LLM reasoning, or be rule-based? |
 | 2 | Monitor | Should the Monitor Agent also scan for SEO regressions? |
 | 3 | Monitor | How deep should CMS monitoring go? |
-| 4 | Triage | Should the Triage Agent also estimate effort/cost? |
+| 4 | Triage | Should the Triage Agent also estimate effort/cost, or leave that to the Feature BA? |
 | 5 | Triage | How to handle ambiguous tickets (bug vs knowledge gap)? |
+| 18 | Feature BA | Feature name normalization: accept LLM output as-is, second LLM pass, or user-defined? |
+| 19 | Feature BA | Untagged files (no LLM analysis): assign to "shared" pseudo-feature or re-run LLM? |
+| 20 | Feature BA | Cross-cutting files: assign to primary feature, duplicate into multiple BAs, or "shared" BA? |
+| 21 | Feature BA | Feature count scaling: what if LLM identifies 50 features? Cap, merge, or allow all? |
+| 22 | Feature BA | Persistence: ephemeral (rebuild per issue) or long-lived (memory across issues)? |
 | 6 | Codebase Intelligence | Documentation stored in user's repo branch or MaintainAI DB only? |
 | 7 | Codebase Intelligence | How to handle very large codebases (500k+ LOC)? |
 | 8 | Codebase Intelligence | Should users be able to manually annotate/correct the docs? |

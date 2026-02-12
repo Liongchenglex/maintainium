@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { get, post, ApiError } from '@/lib/api';
+import { Spinner } from '../ui/spinner';
 
 interface AnalysisData {
   id: string;
@@ -160,7 +161,14 @@ export function AnalysisOverview({ projectId }: AnalysisOverviewProps) {
   };
 
   if (loading) {
-    return <div style={containerStyle}><p style={{ color: '#666' }}>Loading analysis...</p></div>;
+    return (
+      <div style={containerStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#666' }}>
+          <Spinner color="#666" size={14} />
+          <span>Loading analysis...</span>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -208,11 +216,21 @@ export function AnalysisOverview({ projectId }: AnalysisOverviewProps) {
         </div>
       )}
 
+      {analysis.status === 'pending' && (
+        <div style={{ padding: '0.75rem', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#e65100', fontSize: '0.85rem', margin: 0 }}>
+            <Spinner color="#e65100" size={12} />
+            <span>Analysis queued... Waiting to start.</span>
+          </div>
+        </div>
+      )}
+
       {analysis.status === 'analyzing' && (
         <div style={{ padding: '0.75rem', backgroundColor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: '6px', marginBottom: '1.5rem' }}>
-          <p style={{ color: '#1565c0', fontSize: '0.85rem', margin: 0 }}>
-            Analysis in progress... This may take a few minutes.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#1565c0', fontSize: '0.85rem', margin: 0 }}>
+            <Spinner color="#1565c0" size={12} />
+            <span>Analysis in progress... This may take a few minutes.</span>
+          </div>
         </div>
       )}
 

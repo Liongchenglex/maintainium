@@ -37,6 +37,9 @@
 
 - `apps/web/src/components/analysis/analysis-overview.tsx` — Analysis results display
 - `apps/web/src/components/projects/project-detail.tsx` — Updated with Files/Analysis tabs
+- `apps/web/src/components/ui/spinner.tsx` — Shared animated spinner component
+- `apps/web/src/components/dashboard/project-card.tsx` — Analysis status indicator on project cards
+- `apps/web/src/components/dashboard/dashboard-content.tsx` — Dashboard polling during active analysis
 
 ### Modified Existing Files
 

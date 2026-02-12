@@ -9,19 +9,31 @@ export function DashboardContent() {
   const [projects, setProjects] = useState<ProjectCardData[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchProjects = async () => {
+    try {
+      const data = await get<ProjectCardData[]>('/projects');
+      setProjects(data);
+    } catch {
+      // Silent — show empty state
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const data = await get<ProjectCardData[]>('/projects');
-        setProjects(data);
-      } catch {
-        // Silent — show empty state
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProjects();
   }, []);
+
+  // Poll while any project has an active analysis
+  useEffect(() => {
+    const hasActive = projects.some(
+      (p) => p.analysisStatus === 'pending' || p.analysisStatus === 'analyzing',
+    );
+    if (hasActive) {
+      const interval = setInterval(fetchProjects, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [projects]);
 
   const containerStyle: React.CSSProperties = {
     maxWidth: '900px',

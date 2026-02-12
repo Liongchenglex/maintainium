@@ -87,7 +87,10 @@ export class ProjectsController {
   @Get()
   @UseGuards(AuthGuard)
   async listProjects(@CurrentUser() user: RequestUser) {
-    return this.projectsService.listByUser(user.id);
+    const items = await this.projectsService.listByUser(user.id);
+    return items.map(
+      ({ webhookSecret, webhookSecretIv, webhookSecretTag, ...rest }) => rest,
+    );
   }
 
   @Get(':id')

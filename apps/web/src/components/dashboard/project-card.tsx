@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Spinner } from '../ui/spinner';
 
 interface ProjectCardData {
   id: string;
@@ -11,6 +12,7 @@ interface ProjectCardData {
   healthStatus: string;
   webhookId: number | null;
   updatedAt: string;
+  analysisStatus: string | null;
 }
 
 interface ProjectCardProps {
@@ -33,7 +35,6 @@ export function ProjectCard({ project }: ProjectCardProps) {
   const titleStyle: React.CSSProperties = {
     fontSize: '1rem',
     fontWeight: 600,
-    marginBottom: '0.25rem',
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
@@ -91,7 +92,10 @@ export function ProjectCard({ project }: ProjectCardProps) {
         (e.currentTarget as HTMLAnchorElement).style.borderColor = '#e0e0e0';
       }}
     >
-      <div style={titleStyle}>{project.githubRepoName || project.name}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+        <div style={titleStyle}>{project.githubRepoName || project.name}</div>
+        <AnalysisStatusIndicator status={project.analysisStatus} />
+      </div>
       <div style={ownerStyle}>{project.githubOwner}</div>
       <div style={badgesRow}>
         <span style={visibilityBadge}>{project.visibility}</span>
@@ -103,5 +107,40 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </span>
       </div>
     </Link>
+  );
+}
+
+const analysisStatusStyles: Record<string, React.CSSProperties> = {
+  pending: { color: '#e65100', backgroundColor: '#fff3e0', borderColor: '#ffcc80' },
+  analyzing: { color: '#1565c0', backgroundColor: '#e3f2fd', borderColor: '#90caf9' },
+  completed: { color: '#2e7d32', backgroundColor: '#e8f5e9', borderColor: '#a5d6a7' },
+  failed: { color: '#c62828', backgroundColor: '#ffebee', borderColor: '#ef9a9a' },
+};
+
+function AnalysisStatusIndicator({ status }: { status: string | null }) {
+  if (!status) return null;
+
+  const style = analysisStatusStyles[status];
+  if (!style) return null;
+
+  const isActive = status === 'pending' || status === 'analyzing';
+
+  return (
+    <span
+      style={{
+        padding: '0.15rem 0.5rem',
+        borderRadius: '12px',
+        fontSize: '0.7rem',
+        fontWeight: 500,
+        border: '1px solid',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.3rem',
+        ...style,
+      }}
+    >
+      {isActive && <Spinner color={style.color as string} size={8} />}
+      {status}
+    </span>
   );
 }

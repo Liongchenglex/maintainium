@@ -12,7 +12,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.module';
-import { projects, Project } from '../database/schema';
+import { projects, Project, codebaseAnalyses } from '../database/schema';
 import { User } from '../database/schema';
 import { UsersService } from '../users/users.service';
 import { GitHubService } from '../github/github.service';
@@ -132,14 +132,18 @@ export class ProjectsService {
     return project;
   }
 
-  async listByUser(userId: string): Promise<Project[]> {
+  async listByUser(userId: string) {
     const orgs = await this.organizationsService.findByUserId(userId);
     if (orgs.length === 0) return [];
 
     const orgIds = orgs.map((o) => o.id);
-    return this.db
-      .select()
+    const rows = await this.db
+      .select({
+        project: projects,
+        analysisStatus: codebaseAnalyses.status,
+      })
       .from(projects)
+      .leftJoin(codebaseAnalyses, eq(projects.id, codebaseAnalyses.projectId))
       .where(
         and(
           sql`${projects.orgId} IN (${sql.join(orgIds.map((id) => sql`${id}`), sql`, `)})`,
@@ -147,6 +151,11 @@ export class ProjectsService {
         ),
       )
       .orderBy(sql`${projects.updatedAt} DESC`);
+
+    return rows.map((row) => ({
+      ...row.project,
+      analysisStatus: row.analysisStatus ?? null,
+    }));
   }
 
   async findById(id: string): Promise<Project | undefined> {
