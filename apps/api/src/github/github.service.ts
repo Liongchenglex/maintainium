@@ -21,7 +21,9 @@ export class GitHubService {
     path: string,
     options: RequestInit = {},
   ): Promise<T> {
-    const response = await fetch(`${GITHUB_API}${path}`, {
+    const url = `${GITHUB_API}${path}`;
+
+    const response = await fetch(url, {
       ...options,
       headers: {
         Authorization: `Bearer ${token}`,

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -17,6 +18,7 @@ import { ProjectsService } from './projects.service';
 import { UsersService } from '../users/users.service';
 import { GitHubService } from '../github/github.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { UpdateProductionUrlDto } from '../monitor/dto/update-production-url.dto';
 
 @Controller('projects')
 @UseFilters(GitHubExceptionFilter)
@@ -179,5 +181,19 @@ export class ProjectsController {
       truncated,
       binary: isBinary,
     };
+  }
+
+  @Patch(':id')
+  @UseGuards(AuthGuard)
+  async updateProject(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateProductionUrlDto,
+  ) {
+    const project = await this.projectsService.findByIdWithAuth(id, user.id);
+    const updated = await this.projectsService.updateProject(project.id, dto);
+    const { webhookSecret, webhookSecretIv, webhookSecretTag, ...rest } =
+      updated;
+    return rest;
   }
 }

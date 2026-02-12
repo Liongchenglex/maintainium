@@ -8,6 +8,7 @@ import { FileTree } from './file-tree';
 import { FileViewer } from './file-viewer';
 import { GitHubReconnectPrompt } from './github-reconnect-prompt';
 import { AnalysisOverview } from '../analysis/analysis-overview';
+import { MonitorOverview } from '../monitor/monitor-overview';
 
 interface ProjectData {
   id: string;
@@ -19,9 +20,10 @@ interface ProjectData {
   sourceUrl: string | null;
   healthStatus: string;
   webhookId: number | null;
+  productionUrl: string | null;
 }
 
-type Tab = 'files' | 'analysis';
+type Tab = 'files' | 'analysis' | 'monitor';
 
 export function ProjectDetail() {
   const params = useParams();
@@ -174,6 +176,12 @@ export function ProjectDetail() {
         >
           Analysis
         </button>
+        <button
+          style={tabStyle(activeTab === 'monitor')}
+          onClick={() => setActiveTab('monitor')}
+        >
+          Monitor
+        </button>
       </div>
 
       {activeTab === 'files' && (
@@ -203,6 +211,16 @@ export function ProjectDetail() {
 
       {activeTab === 'analysis' && (
         <AnalysisOverview projectId={projectId} />
+      )}
+
+      {activeTab === 'monitor' && (
+        <MonitorOverview
+          projectId={projectId}
+          productionUrl={project.productionUrl}
+          onProductionUrlChange={(url) =>
+            setProject((prev) => (prev ? { ...prev, productionUrl: url } : prev))
+          }
+        />
       )}
     </div>
   );

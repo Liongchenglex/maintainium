@@ -422,6 +422,41 @@ Requirements:
 
 ---
 
+### B14: Scanner Pattern
+
+Each scanner is a stateless `@Injectable()` class with a single `scan()` method that receives a `ScanContext` and returns `FindingData[]`. Scanners are registered as providers in the monitor module and injected into the orchestrator service.
+
+```typescript
+@Injectable()
+export class ExampleScanner {
+  private readonly logger = new Logger(ExampleScanner.name);
+
+  async scan(context: ScanContext): Promise<FindingData[]> {
+    const { project, analysis } = context;
+    if (!analysis?.someData) return [];
+
+    // Process data, generate fingerprints, return findings
+    return findings.map((item) => ({
+      fingerprint: createHash('sha256').update(`scanner-id:${item.key}`).digest('hex'),
+      severity: 'medium',
+      title: `Finding title`,
+      description: `Finding description`,
+      details: { /* scanner-specific data */ },
+    }));
+  }
+}
+```
+
+**Key rules:**
+- Scanners are stateless — all context comes via `ScanContext`
+- Fingerprints must be stable (same input = same fingerprint) for deduplication
+- Scanners handle their own errors internally (log + return empty array)
+- External API calls include timeouts and retry logic
+
+**Used by:** Monitor Agent (M4) — 8 scanners (CVE, Freshness, Secrets, Auth Coverage, Code Health, Env Exposure, Uptime, SSL)
+
+---
+
 ## Adding a New Pattern
 
 1. Check this doc — does a pattern already exist for this concern?

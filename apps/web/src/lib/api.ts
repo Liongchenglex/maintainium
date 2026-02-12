@@ -70,3 +70,18 @@ export function post<T>(
     firebaseUser,
   );
 }
+
+export function patch<T>(
+  path: string,
+  data?: unknown,
+  firebaseUser?: FirebaseUser,
+): Promise<T> {
+  return request<T>(
+    path,
+    {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    },
+    firebaseUser,
+  );
+}

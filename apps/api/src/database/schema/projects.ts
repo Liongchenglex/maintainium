@@ -47,6 +47,7 @@ export const projects = pgTable(
     webhookSecret: text('webhook_secret'),
     webhookSecretIv: text('webhook_secret_iv'),
     webhookSecretTag: text('webhook_secret_tag'),
+    productionUrl: text('production_url'),
     healthStatus: healthStatusEnum('health_status')
       .notNull()
       .default('unknown'),

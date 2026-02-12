@@ -186,6 +186,18 @@ export class ProjectsService {
     return project;
   }
 
+  async updateProject(
+    id: string,
+    data: { productionUrl?: string | null },
+  ): Promise<Project> {
+    const [updated] = await this.db
+      .update(projects)
+      .set({ ...data, updatedAt: sql`now()` })
+      .where(eq(projects.id, id))
+      .returning();
+    return updated;
+  }
+
   async getConnectedRepoIds(userId: string): Promise<number[]> {
     const userProjects = await this.listByUser(userId);
     return userProjects

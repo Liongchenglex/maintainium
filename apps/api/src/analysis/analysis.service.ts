@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { eq, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../database/database.constants';
 import { DrizzleDB } from '../database/database.module';
@@ -22,6 +23,7 @@ import { SecurityAnalyzer } from './analyzers/security.analyzer';
 import { ContentStructureAnalyzer } from './analyzers/content-structure.analyzer';
 import { LlmIntelligenceAnalyzer } from './analyzers/llm-intelligence.analyzer';
 import { ANALYSIS_EVENTS } from './analysis.constants';
+import { MONITOR_EVENTS } from '../monitor/monitor.constants';
 import {
   ProjectCreatedPayload,
   ProjectPushedPayload,
@@ -38,6 +40,7 @@ export class AnalysisService {
     private projectsService: ProjectsService,
     private repoDownloader: RepoDownloaderService,
     private llmService: LlmService,
+    private eventEmitter: EventEmitter2,
     private projectMetadataAnalyzer: ProjectMetadataAnalyzer,
     private dependencyInventoryAnalyzer: DependencyInventoryAnalyzer,
     private fileRegistryAnalyzer: FileRegistryAnalyzer,
@@ -181,6 +184,11 @@ export class AnalysisService {
         this.logger.log(
           `Analysis completed for project ${projectId} in ${durationMs}ms`,
         );
+
+        // Trigger monitor scan
+        this.eventEmitter.emit(MONITOR_EVENTS.ANALYSIS_COMPLETED, {
+          projectId,
+        });
       } finally {
         await cleanup();
       }
