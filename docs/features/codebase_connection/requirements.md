@@ -9,11 +9,11 @@
 
 ### Who is this for?
 
-Authenticated MaintainAI users (from M1) who want to connect their GitHub repositories so the platform can monitor and maintain their codebases.
+Authenticated Maintanium users (from M1) who want to connect their GitHub repositories so the platform can monitor and maintain their codebases.
 
 ### Why does it matter?
 
-Before MaintainAI can diagnose, monitor, or fix anything, it needs access to the user's codebase. GitHub connection is the entry point to the entire platform value chain. Without it, the dashboard remains empty.
+Before Maintanium can diagnose, monitor, or fix anything, it needs access to the user's codebase. GitHub connection is the entry point to the entire platform value chain. Without it, the dashboard remains empty.
 
 ### What is explicitly NOT included?
 
@@ -59,7 +59,7 @@ Two pieces of prerequisite work must be completed before the core M2 flows work:
 4. No token found → System shows "Connect your GitHub account" prompt with explanation
 5. User clicks "Connect GitHub"
 6. System initiates GitHub OAuth flow (requesting read access to repos)
-7. User authorizes MaintainAI on GitHub
+7. User authorizes Maintanium on GitHub
 8. System receives access token, encrypts and stores it against the user
 9. Continues from Flow A, step 4
 
@@ -84,7 +84,7 @@ Two pieces of prerequisite work must be completed before the core M2 flows work:
 ### Flow E: Webhook updates file tree
 
 1. User pushes code to a connected repository
-2. GitHub sends a `push` webhook to MaintainAI's webhook endpoint
+2. GitHub sends a `push` webhook to Maintanium's webhook endpoint
 3. System verifies the webhook signature against the stored secret
 4. System identifies the affected project by the repository ID
 5. System updates the stored file tree for the affected paths
@@ -133,7 +133,7 @@ On repo selection, the system:
 2. Stores the GitHub connection metadata (repo ID, webhook secret, default branch)
 3. Registers a GitHub webhook on the repo:
    - Events: `push`
-   - URL: MaintainAI's webhook endpoint
+   - URL: Maintanium's webhook endpoint
    - Secret: randomly generated per-project, stored encrypted
 4. Fetches the default branch name from GitHub API (does not assume `main` or `master`)
 5. Fetches the top-level file tree of the default branch
@@ -179,10 +179,10 @@ If any step fails, the entire operation rolls back — no partial project record
 | GitHub API rate limit hit | Show: "GitHub is temporarily unavailable. Please try again in X minutes." Display the reset time from GitHub's `X-RateLimit-Reset` header. |
 | Webhook registration fails | Project is still created but flagged as "webhook pending". System retries registration (up to 3 attempts with backoff). User sees a warning on the project card. |
 | Very large repo (>10,000 files) | File tree fetched lazily — only the requested directory level loads per interaction. Never fetch the entire tree recursively in one call. |
-| User revokes MaintainAI's GitHub access externally | Next GitHub API call returns 401 → trigger Flow C (reconnect prompt). |
+| User revokes Maintanium's GitHub access externally | Next GitHub API call returns 401 → trigger Flow C (reconnect prompt). |
 | Default branch is not `main` or `master` | System reads the default branch from the GitHub API `default_branch` field. Never hardcode branch names. |
 | GitHub-auth user signed in before M1 retrofix (no stored token) | Treated the same as an email user — shown "Connect GitHub" OAuth flow (Flow B). |
-| User's GitHub org requires SSO approval for OAuth apps | GitHub returns 403 with SSO message. Show: "Your GitHub organization requires SSO approval for MaintainAI. Please ask your org admin to approve the app." |
+| User's GitHub org requires SSO approval for OAuth apps | GitHub returns 403 with SSO message. Show: "Your GitHub organization requires SSO approval for Maintanium. Please ask your org admin to approve the app." |
 | Webhook payload for a deleted repository | Ignore gracefully. Mark project as inactive if repo deletion is confirmed. |
 
 ---
@@ -200,7 +200,7 @@ If any step fails, the entire operation rolls back — no partial project record
 | Database error during project creation | 500 | "Something went wrong. Please try again." | Rollback transaction — no partial records. Log error. |
 | GitHub API timeout | Timeout | "GitHub is taking too long to respond. Please try again." | No state change, log timeout |
 | Webhook registration failed after 3 retries | N/A | Warning on project card: "Webhook setup pending" | Log failure, project still usable but won't auto-sync |
-| GitHub org SSO required | 403 from GitHub | "Your GitHub organization requires SSO approval for MaintainAI." | No state change, show guidance |
+| GitHub org SSO required | 403 from GitHub | "Your GitHub organization requires SSO approval for Maintanium." | No state change, show guidance |
 
 ---
 

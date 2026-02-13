@@ -1,4 +1,4 @@
-# MaintainAI — Backlog
+# Maintanium — Backlog
 
 Deferred features and enhancements, organized by area. Each item references the milestone or feature it relates to.
 

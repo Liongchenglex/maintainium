@@ -23,9 +23,9 @@ const copyStyle: React.CSSProperties = {
 export function FooterSection() {
   return (
     <footer style={footerStyle}>
-      <span style={logoStyle}>MaintainAI</span>
+      <span style={logoStyle}>Maintanium</span>
       <span style={copyStyle}>
-        &copy; {new Date().getFullYear()} MaintainAI. All rights reserved.
+        &copy; {new Date().getFullYear()} Maintanium. All rights reserved.
       </span>
     </footer>
   );

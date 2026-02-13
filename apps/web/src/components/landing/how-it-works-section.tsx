@@ -6,7 +6,7 @@ const steps = [
   {
     number: '01',
     title: 'Connect',
-    desc: 'Link your GitHub repository in one click. MaintainAI automatically receives push events via webhooks.',
+    desc: 'Link your GitHub repository in one click. Maintanium automatically receives push events via webhooks.',
   },
   {
     number: '02',

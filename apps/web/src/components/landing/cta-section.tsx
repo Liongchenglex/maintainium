@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
+import { useState } from 'react';
 import { SectionReveal } from './section-reveal';
+import { WaitlistModal } from './waitlist-modal';
 
 const sectionStyle: React.CSSProperties = {
   display: 'flex',
@@ -71,42 +72,31 @@ const primaryBtnStyle: React.CSSProperties = {
   border: 'none',
   borderRadius: 8,
   cursor: 'pointer',
-  textDecoration: 'none',
   transition: 'transform 0.2s',
 };
 
-const secondaryBtnStyle: React.CSSProperties = {
-  padding: '0.85rem 2rem',
-  fontSize: '1rem',
-  fontWeight: 600,
-  backgroundColor: 'transparent',
-  color: '#fff',
-  border: '1px solid rgba(255, 255, 255, 0.3)',
-  borderRadius: 8,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  transition: 'border-color 0.2s',
-};
-
 export function CtaSection() {
+  const [modalOpen, setModalOpen] = useState(false);
+
   return (
-    <section className="landing-snap-section" style={sectionStyle}>
-      <div style={glowStyle} />
-      <SectionReveal>
-        <h2 style={headingStyle}>Ship with confidence</h2>
-        <p style={subheadStyle}>
-          Stop firefighting production issues. Let AI handle the maintenance
-          while you build what matters.
-        </p>
-        <div style={buttonRowStyle}>
-          <Link href="/signup" style={primaryBtnStyle}>
-            Start Free
-          </Link>
-          <Link href="/login" style={secondaryBtnStyle}>
-            Sign In
-          </Link>
-        </div>
-      </SectionReveal>
-    </section>
+    <>
+      <section className="landing-snap-section" style={sectionStyle}>
+        <div style={glowStyle} />
+        <SectionReveal>
+          <h2 style={headingStyle}>Ship with confidence</h2>
+          <p style={subheadStyle}>
+            Stop firefighting production issues. Let AI handle the maintenance
+            while you build what matters.
+          </p>
+          <div style={buttonRowStyle}>
+            <button style={primaryBtnStyle} onClick={() => setModalOpen(true)}>
+              Join Waitlist
+            </button>
+          </div>
+        </SectionReveal>
+      </section>
+
+      <WaitlistModal open={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
   );
 }

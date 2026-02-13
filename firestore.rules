@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow anyone to create a waitlist entry (no auth required)
+    // Restricts to only email and createdAt fields
+    match /waitlist/{docId} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'createdAt'])
+                    && request.resource.data.email is string
+                    && request.resource.data.email.size() > 0
+                    && request.resource.data.email.size() < 255;
+      allow read, update, delete: if false;
+    }
+
+    // Default: deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

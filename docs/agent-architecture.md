@@ -1,4 +1,4 @@
-# MaintainAI — Agent Architecture
+# Maintanium — Agent Architecture
 
 7 agents across 4 layers. Every agent has a defined purpose, triggers, inputs/outputs, context access, interactions, and open questions.
 
@@ -359,7 +359,7 @@ This agent IS the context layer. It produces the documentation that all other ag
 
 ### Open Questions
 
-- Should this documentation be committed as a branch in the user's repo, or stored in MaintainAI's database only?
+- Should this documentation be committed as a branch in the user's repo, or stored in Maintanium's database only?
 - How to handle very large codebases (500k+ LOC)? Incremental indexing vs full scan trade-offs.
 - Should users be able to manually annotate/correct the documentation?
 
@@ -571,7 +571,7 @@ Reads deployment configuration from Codebase Intelligence: CI/CD pipeline (Verce
 | 20 | Feature BA | Cross-cutting files: assign to primary feature, duplicate into multiple BAs, or "shared" BA? |
 | 21 | Feature BA | Feature count scaling: what if LLM identifies 50 features? Cap, merge, or allow all? |
 | 22 | Feature BA | Persistence: ephemeral (rebuild per issue) or long-lived (memory across issues)? |
-| 6 | Codebase Intelligence | Documentation stored in user's repo branch or MaintainAI DB only? |
+| 6 | Codebase Intelligence | Documentation stored in user's repo branch or Maintanium DB only? |
 | 7 | Codebase Intelligence | How to handle very large codebases (500k+ LOC)? |
 | 8 | Codebase Intelligence | Should users be able to manually annotate/correct the docs? |
 | 9 | Implementation | Should the Lead Agent assemble the diff, or specialists commit independently? |

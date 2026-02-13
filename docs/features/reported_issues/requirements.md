@@ -10,7 +10,7 @@
 - **System actors**: Triage Agent (LLM), Feature BA Agent (LLM), Implementation Agent
 
 ### Problem being solved
-Customer-reported issues arrive via email and require manual triage, diagnosis, and routing. This is slow, error-prone, and context-lossy. MaintainAI automates this: an AI triage agent classifies inbound emails using codebase intelligence (M3), routes to a feature-specific BA agent that diagnoses with full code context, and surfaces actionable fixes (or non-code solutions) directly in the dashboard.
+Customer-reported issues arrive via email and require manual triage, diagnosis, and routing. This is slow, error-prone, and context-lossy. Maintanium automates this: an AI triage agent classifies inbound emails using codebase intelligence (M3), routes to a feature-specific BA agent that diagnoses with full code context, and surfaces actionable fixes (or non-code solutions) directly in the dashboard.
 
 ### Non-goals (explicitly out of scope)
 - Real-time chat / live support (email-only for this milestone)

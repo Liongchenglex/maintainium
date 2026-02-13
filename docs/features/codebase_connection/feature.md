@@ -2,7 +2,7 @@
 
 ## Feature
 Name: GitHub Codebase Connection
-Purpose: Allow users to connect GitHub repositories to MaintainAI, browse file trees, and receive webhook updates on push events.
+Purpose: Allow users to connect GitHub repositories to Maintanium, browse file trees, and receive webhook updates on push events.
 
 ---
 

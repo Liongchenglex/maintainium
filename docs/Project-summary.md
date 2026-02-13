@@ -6,7 +6,7 @@ AI-assisted “vibe coding” tools (Bolt, Lovable, Cursor, Replit Agent) have m
 Small businesses running CMS-based sites (WordPress, Shopify, Webflow) face the same problem: ongoing maintenance is expensive, opaque, and reactive. They pay agencies or freelancers for work they can’t evaluate.
 
 The Vision
-MaintainAI is an AI-powered maintenance platform that acts as an always-on engineering team for your web applications. AI agents diagnose issues, triage incoming requests, execute fixes, monitor health, and manage upgrades — all with human-in-the-loop approval at every critical step. Every proposed fix is previewed in a live sandbox environment before it touches production.
+Maintanium is an AI-powered maintenance platform that acts as an always-on engineering team for your web applications. AI agents diagnose issues, triage incoming requests, execute fixes, monitor health, and manage upgrades — all with human-in-the-loop approval at every critical step. Every proposed fix is previewed in a live sandbox environment before it touches production.
 
 Core Thesis
 “AI made it possible to build an app in a weekend. We make sure it still works six months later.”
@@ -24,7 +24,7 @@ The platform is composed of specialised AI agents that work together in a coordi
 see agent-architecture.md
 
 High-Level Flow
-1. User connects their codebase (GitHub/GitLab) or CMS platform (WordPress/Shopify) to MaintainAI.
+1. User connects their codebase (GitHub/GitLab) or CMS platform (WordPress/Shopify) to Maintanium.
 2. Issue enters the system via: automated scan, user highlight, or Jira/ticket integration.
 3. Diagnostic Agent analyses and assigns a maintenance score (simple fix vs. new requirement).
 4. BA Agent classifies: is this a code bug, a knowledge gap, or a feature request?

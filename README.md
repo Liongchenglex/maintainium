@@ -1,4 +1,4 @@
-# MaintainAI
+# Maintanium
 
 AI-powered maintenance platform.
 

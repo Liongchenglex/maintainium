@@ -5,7 +5,7 @@
 ## 1. Context & Intent
 
 ### Who is this for?
-The **Codebase Intelligence Agent** serves all other agents in the MaintainAI system. It is the shared knowledge layer that every downstream agent reads from:
+The **Codebase Intelligence Agent** serves all other agents in the Maintanium system. It is the shared knowledge layer that every downstream agent reads from:
 - **Monitor Agent (M4)**: Needs dependency inventory, tech stack, and security metadata to detect issues
 - **Implementation Agent (M6)**: Needs file registry, dependency graph, API surface, and data model to write context-aware fixes
 - **Validation Agent**: Needs expected behavior, schemas, and test locations to verify fixes
@@ -58,7 +58,7 @@ Without a pre-indexed codebase knowledge layer, every agent would re-parse the e
    d. Updates `analyzedAt` timestamp
 6. Next time the user visits the project detail page, they see the updated analysis results
 
-**Note:** The developer does not need to be logged into MaintainAI or take any action in the dashboard. The webhook fires automatically from GitHub whenever code is pushed.
+**Note:** The developer does not need to be logged into Maintanium or take any action in the dashboard. The webhook fires automatically from GitHub whenever code is pushed.
 
 ### Flow C: Manual Re-scan
 
@@ -341,7 +341,7 @@ These enhance analysis quality but are not blocking for M4 or M6.
 - Analysis for a typical repository (< 10,000 files) completes within 5 minutes (per milestone criteria).
 - `@nestjs/event-emitter` is sufficient for M3's async processing needs. If reliability requirements increase (guaranteed delivery, retry on crash), a proper job queue (`@nestjs/bull` + Redis) should be adopted.
 - LLM cost per analysis is approximately $0.05–0.15 for selective analysis (~20-50 files at ~300 lines each using Claude Sonnet).
-- LLM API key is provided by the platform operator (MaintainAI), not by the end user.
+- LLM API key is provided by the platform operator (Maintanium), not by the end user.
 
 ---
 

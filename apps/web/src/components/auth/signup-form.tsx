@@ -142,7 +142,7 @@ export function SignupForm() {
             marginBottom: '0.5rem',
           }}
         >
-          Create your MaintainAI account
+          Create your Maintanium account
         </p>
 
         {error && <div style={errorStyle}>{error}</div>}

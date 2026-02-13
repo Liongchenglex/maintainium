@@ -1,4 +1,4 @@
-# MaintainAI — MVP Milestones
+# Maintanium — MVP Milestones
 
 The PRD is the source of truth for what each feature must do. This document defines **delivery order** and **integration-level criteria** that span multiple PRD sections. For acceptance criteria on any specific feature, refer to the PRD.
 

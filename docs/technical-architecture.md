@@ -1,4 +1,4 @@
-# MaintainAI — Technical Architecture (GCP)
+# Maintanium — Technical Architecture (GCP)
 
 Infrastructure, database schemas, API surface, and event-driven communication.
 

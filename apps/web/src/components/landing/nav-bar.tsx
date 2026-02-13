@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { WaitlistModal } from './waitlist-modal';
 
 const navStyle: React.CSSProperties = {
   position: 'fixed',
@@ -37,19 +38,21 @@ const linkStyle: React.CSSProperties = {
   transition: 'color 0.2s',
 };
 
-const signInStyle: React.CSSProperties = {
+const waitlistBtnStyle: React.CSSProperties = {
   fontSize: '0.875rem',
   fontWeight: 600,
   color: '#000',
   backgroundColor: '#fff',
   padding: '0.45rem 1.1rem',
   borderRadius: 6,
-  textDecoration: 'none',
+  border: 'none',
+  cursor: 'pointer',
   transition: 'opacity 0.2s',
 };
 
 export function NavBar() {
   const [scrolled, setScrolled] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     const container = document.querySelector('.landing-scroll-container');
@@ -64,28 +67,32 @@ export function NavBar() {
   }, []);
 
   return (
-    <nav
-      className={`landing-nav${scrolled ? ' scrolled' : ''}`}
-      style={navStyle}
-    >
-      <Link href="/" style={logoStyle}>
-        MaintainAI
-      </Link>
-
-      <div className="landing-nav-links" style={linksStyle}>
-        <a href="#features" style={linkStyle}>
-          Features
-        </a>
-        <a href="#how-it-works" style={linkStyle}>
-          How It Works
-        </a>
-        <a href="#metrics" style={linkStyle}>
-          Metrics
-        </a>
-        <Link href="/login" style={signInStyle}>
-          Sign In
+    <>
+      <nav
+        className={`landing-nav${scrolled ? ' scrolled' : ''}`}
+        style={navStyle}
+      >
+        <Link href="/" style={logoStyle}>
+          Maintanium
         </Link>
-      </div>
-    </nav>
+
+        <div className="landing-nav-links" style={linksStyle}>
+          <a href="#features" style={linkStyle}>
+            Features
+          </a>
+          <a href="#how-it-works" style={linkStyle}>
+            How It Works
+          </a>
+          <a href="#metrics" style={linkStyle}>
+            Metrics
+          </a>
+          <button style={waitlistBtnStyle} onClick={() => setModalOpen(true)}>
+            Join Waitlist
+          </button>
+        </div>
+      </nav>
+
+      <WaitlistModal open={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
   );
 }

@@ -5,7 +5,7 @@
 ## 1. Context & Intent
 
 ### Who is this for?
-End users of MaintainAI who need to create an account and access the platform.
+End users of Maintanium who need to create an account and access the platform.
 
 ### Why does it matter?
 Authentication is the foundation of the platform. No feature can be built securely without knowing who the user is. M1 establishes the auth pattern that all future features depend on.

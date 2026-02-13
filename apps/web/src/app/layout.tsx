@@ -3,7 +3,7 @@ import { AuthProvider } from '@/contexts/auth-context';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'MaintainAI',
+  title: 'Maintanium',
   description: 'AI-powered maintenance platform',
 };
 

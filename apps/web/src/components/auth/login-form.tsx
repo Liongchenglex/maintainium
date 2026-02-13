@@ -141,7 +141,7 @@ export function LoginForm() {
             marginBottom: '0.5rem',
           }}
         >
-          Welcome back to MaintainAI
+          Welcome back to Maintanium
         </p>
 
         {error && <div style={errorStyle}>{error}</div>}
