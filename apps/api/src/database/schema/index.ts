@@ -5,3 +5,6 @@ export * from './projects';
 export * from './github-tokens';
 export * from './codebase-analyses';
 export * from './monitor-scans';
+export * from './reported-issues';
+export * from './issue-diagnoses';
+export * from './agent-memory';

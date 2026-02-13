@@ -12,6 +12,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { MonitorModule } from './monitor/monitor.module';
+import { IssuesModule } from './issues/issues.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { MonitorModule } from './monitor/monitor.module';
     WebhooksModule,
     AnalysisModule,
     MonitorModule,
+    IssuesModule,
   ],
 })
 export class AppModule {}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { get, ApiError } from '@/lib/api';
 import { BreadcrumbNav } from './breadcrumb-nav';
 import { FileTree } from './file-tree';
@@ -9,6 +9,7 @@ import { FileViewer } from './file-viewer';
 import { GitHubReconnectPrompt } from './github-reconnect-prompt';
 import { AnalysisOverview } from '../analysis/analysis-overview';
 import { MonitorOverview } from '../monitor/monitor-overview';
+import { ReportedIssuesOverview } from '../issues/reported-issues-overview';
 
 interface ProjectData {
   id: string;
@@ -23,11 +24,12 @@ interface ProjectData {
   productionUrl: string | null;
 }
 
-type Tab = 'files' | 'analysis' | 'monitor';
+type Tab = 'files' | 'analysis' | 'monitor' | 'issues';
 
 export function ProjectDetail() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const projectId = params.id as string;
 
   const [project, setProject] = useState<ProjectData | null>(null);
@@ -38,7 +40,7 @@ export function ProjectDetail() {
   const [tokenExpired, setTokenExpired] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'monitor' || tab === 'analysis') return tab;
+    if (tab === 'monitor' || tab === 'analysis' || tab === 'issues') return tab;
     return 'files';
   });
 
@@ -145,6 +147,23 @@ export function ProjectDetail() {
 
   return (
     <div style={containerStyle}>
+      <button
+        onClick={() => router.push('/dashboard')}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+          background: 'none',
+          border: 'none',
+          color: '#1565c0',
+          fontSize: '0.85rem',
+          cursor: 'pointer',
+          padding: 0,
+          marginBottom: '0.75rem',
+        }}
+      >
+        ← Back to Dashboard
+      </button>
       <div style={headerStyle}>
         <h1 style={titleStyle}>
           {project.githubOwner}/{project.githubRepoName}
@@ -187,6 +206,12 @@ export function ProjectDetail() {
         >
           Monitor
         </button>
+        <button
+          style={tabStyle(activeTab === 'issues')}
+          onClick={() => setActiveTab('issues')}
+        >
+          Reported Issues
+        </button>
       </div>
 
       {activeTab === 'files' && (
@@ -226,6 +251,10 @@ export function ProjectDetail() {
             setProject((prev) => (prev ? { ...prev, productionUrl: url } : prev))
           }
         />
+      )}
+
+      {activeTab === 'issues' && (
+        <ReportedIssuesOverview projectId={projectId} />
       )}
     </div>
   );

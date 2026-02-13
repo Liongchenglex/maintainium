@@ -58,7 +58,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div>
       <header style={headerStyle}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>MaintainAI</h2>
+        <h2
+          style={{ fontSize: '1.25rem', fontWeight: 700, cursor: 'pointer' }}
+          onClick={() => router.push('/dashboard')}
+        >
+          Maintanium
+        </h2>
         <div style={userInfoStyle}>
           <span style={{ fontSize: '0.9rem', color: '#666' }}>
             {dbUser?.displayName || user.email}

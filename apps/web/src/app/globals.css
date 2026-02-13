@@ -29,3 +29,138 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ── Scroll-snap container ── */
+.landing-scroll-container {
+  height: 100vh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+
+.landing-snap-section {
+  scroll-snap-align: start;
+  min-height: 100vh;
+}
+
+/* ── Keyframe animations ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes floatReverse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(20px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes rotateSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── Section reveal ── */
+.section-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+
+.section-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Nav blur transition ── */
+.landing-nav {
+  transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+}
+
+.landing-nav.scrolled {
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .landing-decoration-large {
+    display: none !important;
+  }
+
+  .landing-features-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-steps-row {
+    flex-direction: column !important;
+    gap: 2rem !important;
+  }
+
+  .landing-steps-line {
+    display: none !important;
+  }
+
+  .landing-metrics-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .landing-nav-links {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
