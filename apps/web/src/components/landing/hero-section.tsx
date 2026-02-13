@@ -6,12 +6,22 @@ import { HeroDecorations } from './hero-decorations';
 
 const sectionStyle: React.CSSProperties = {
   position: 'relative',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
   minHeight: '100vh',
   backgroundColor: '#000',
   overflow: 'hidden',
+};
+
+/* This wrapper holds EVERYTHING — decorations + text.
+   We scale this entire layer so the circles rush outward
+   past the viewport edges, creating a "zoom into" feel. */
+const zoomLayerStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  willChange: 'transform, opacity',
+  transformOrigin: 'center center',
 };
 
 const contentStyle: React.CSSProperties = {
@@ -22,7 +32,6 @@ const contentStyle: React.CSSProperties = {
   alignItems: 'center',
   textAlign: 'center',
   padding: '0 1.5rem',
-  willChange: 'transform, opacity',
 };
 
 const titleStyle: React.CSSProperties = {
@@ -82,24 +91,27 @@ const secondaryBtnStyle: React.CSSProperties = {
 };
 
 export function HeroSection() {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const container = sectionRef.current?.closest('.landing-scroll-container');
-    if (!container || !contentRef.current) return;
+    if (!container || !zoomRef.current) return;
 
     let raf: number;
     const onScroll = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const el = contentRef.current;
+        const el = zoomRef.current;
         if (!el) return;
-        const scrollY = container.scrollTop;
+        const scrollY = (container as HTMLElement).scrollTop;
         const vh = window.innerHeight;
+        // progress 0→1 over the first viewport of scrolling
         const progress = Math.min(scrollY / vh, 1);
-        const scale = 1 + progress * 0.15;
-        const opacity = 1 - progress;
+        // Scale 1→3: circles rush outward past screen edges
+        const scale = 1 + progress * 2;
+        // Fade out over the first 60% of scroll so it's gone before snap
+        const opacity = Math.max(1 - progress / 0.6, 0);
         el.style.transform = `scale(${scale})`;
         el.style.opacity = `${opacity}`;
       });
@@ -118,20 +130,23 @@ export function HeroSection() {
       className="landing-snap-section"
       style={sectionStyle}
     >
-      <HeroDecorations />
-      <div ref={contentRef} style={contentStyle}>
-        <h1 style={titleStyle}>MaintainAI</h1>
-        <p style={subtitleStyle}>
-          AI-powered codebase intelligence that monitors, diagnoses, and
-          maintains your software — so you can ship with confidence.
-        </p>
-        <div style={buttonRowStyle}>
-          <Link href="/signup" style={primaryBtnStyle}>
-            Get Started Free
-          </Link>
-          <Link href="#features" style={secondaryBtnStyle}>
-            See How It Works
-          </Link>
+      {/* Zoom layer: scales the entire hero (decorations + content) */}
+      <div ref={zoomRef} style={zoomLayerStyle}>
+        <HeroDecorations />
+        <div style={contentStyle}>
+          <h1 style={titleStyle}>MaintainAI</h1>
+          <p style={subtitleStyle}>
+            AI-powered codebase intelligence that monitors, diagnoses, and
+            maintains your software — so you can ship with confidence.
+          </p>
+          <div style={buttonRowStyle}>
+            <Link href="/signup" style={primaryBtnStyle}>
+              Get Started Free
+            </Link>
+            <Link href="#features" style={secondaryBtnStyle}>
+              See How It Works
+            </Link>
+          </div>
         </div>
       </div>
     </section>
