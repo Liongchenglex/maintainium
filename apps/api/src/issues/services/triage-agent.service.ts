@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import Anthropic from '@anthropic-ai/sdk';
 import { AnalysisService } from '../../analysis/analysis.service';
 import { IssuesService } from '../issues.service';
@@ -22,7 +21,6 @@ export class TriageAgentService {
     private configService: ConfigService,
     private analysisService: AnalysisService,
     private issuesService: IssuesService,
-    private eventEmitter: EventEmitter2,
   ) {
     const apiKey = this.configService.get<string>('LLM_API_KEY');
     this.model = this.configService.get<string>('LLM_MODEL', 'claude-sonnet-4-5-20250929');
@@ -99,12 +97,6 @@ export class TriageAgentService {
       this.logger.log(
         `Issue ${payload.issueId} triaged: area=${result.assignedArea} priority=${result.priority} confidence=${result.confidence}`,
       );
-
-      this.eventEmitter.emit(ISSUES_EVENTS.ISSUE_TRIAGED, {
-        issueId: payload.issueId,
-        projectId: payload.projectId,
-        assignedArea: result.assignedArea,
-      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Triage failed for issue ${payload.issueId}: ${message}`);

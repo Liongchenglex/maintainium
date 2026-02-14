@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { get } from '@/lib/api';
 import { Spinner } from '../ui/spinner';
@@ -44,21 +44,51 @@ export function ReportedIssuesOverview({ projectId }: ReportedIssuesOverviewProp
   const [areaFilter, setAreaFilter] = useState<string>('all');
   const [showSubmitForm, setShowSubmitForm] = useState(false);
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const fetchIssues = useCallback(async () => {
-    setLoading(true);
     try {
       const data = await get<ReportedIssue[]>(`/projects/${projectId}/issues`);
       setIssues(data);
+      return data;
     } catch {
       setIssues([]);
-    } finally {
-      setLoading(false);
+      return [];
     }
   }, [projectId]);
 
+  // Initial load
   useEffect(() => {
-    fetchIssues();
+    const load = async () => {
+      setLoading(true);
+      await fetchIssues();
+      setLoading(false);
+    };
+    load();
   }, [fetchIssues]);
+
+  // Poll while any issue is in a processing state (new or triaged)
+  useEffect(() => {
+    const hasProcessing = issues.some(
+      (i) => i.status === 'new' || i.status === 'triaged',
+    );
+
+    if (hasProcessing && !pollRef.current) {
+      pollRef.current = setInterval(() => {
+        fetchIssues();
+      }, 3000);
+    } else if (!hasProcessing && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [issues, fetchIssues]);
 
   const filteredIssues = issues.filter((issue) => {
     if (statusFilter !== 'all' && issue.status !== statusFilter) return false;

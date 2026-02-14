@@ -8,6 +8,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { AnalysisModule } from '../analysis/analysis.module';
+import { GitHubModule } from '../github/github.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AnalysisModule } from '../analysis/analysis.module';
     forwardRef(() => AuthModule),
     forwardRef(() => ProjectsModule),
     forwardRef(() => AnalysisModule),
+    forwardRef(() => GitHubModule),
   ],
   controllers: [IssuesController],
   providers: [IssuesService, TriageAgentService, DiagnosisAgentService, EmbeddingService],

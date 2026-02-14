@@ -176,13 +176,6 @@ export class IssuesService {
 
     this.logger.log(`Issue reassigned: ${issueId} to area ${assignedArea}`);
 
-    // Re-trigger diagnosis
-    this.eventEmitter.emit(ISSUES_EVENTS.ISSUE_TRIAGED, {
-      issueId: issue.id,
-      projectId,
-      assignedArea,
-    });
-
     return updated;
   }
 }

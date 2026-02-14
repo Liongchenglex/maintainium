@@ -7,6 +7,7 @@ export interface IssueTriagedPayload {
   issueId: string;
   projectId: string;
   assignedArea: string;
+  userId: string;
 }
 
 export interface TriageLlmResponse {

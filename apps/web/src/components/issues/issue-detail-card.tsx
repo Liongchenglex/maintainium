@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { get, patch } from '@/lib/api';
+import { get, post, patch } from '@/lib/api';
 import { Spinner } from '../ui/spinner';
 import { DiffView } from '../monitor/diff-view';
 import type { ReportedIssue, IssueDiagnosis, IssuePriority, IssueStatus } from './reported-issues-mock';
@@ -94,8 +94,24 @@ export function IssueDetailCard() {
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
   const [reassigning, setReassigning] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
   const [selectedArea, setSelectedArea] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const fetchIssue = useCallback(async () => {
+    try {
+      const data = await get<IssueWithDiagnosis>(
+        `/projects/${projectId}/issues/${issueId}`,
+      );
+      setIssue(data);
+      return data;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load issue');
+      return null;
+    }
+  }, [projectId, issueId]);
+
+  // Initial load
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -114,6 +130,31 @@ export function IssueDetailCard() {
     fetchData();
   }, [projectId, issueId]);
 
+  // Poll while triaging (status=new) or diagnosing (user triggered diagnosis)
+  useEffect(() => {
+    const shouldPoll =
+      issue?.status === 'new' || (diagnosing && issue?.status === 'triaged');
+
+    if (shouldPoll && !pollRef.current) {
+      pollRef.current = setInterval(async () => {
+        const updated = await fetchIssue();
+        if (updated && updated.status !== 'new' && updated.status !== 'triaged') {
+          setDiagnosing(false);
+        }
+      }, 3000);
+    } else if (!shouldPoll && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [issue?.status, diagnosing, fetchIssue]);
+
   const handleResolve = async () => {
     setResolving(true);
     try {
@@ -127,6 +168,16 @@ export function IssueDetailCard() {
     }
   };
 
+  const handleDiagnose = async () => {
+    setDiagnosing(true);
+    try {
+      await post(`/projects/${projectId}/issues/${issueId}/diagnose`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start diagnosis');
+      setDiagnosing(false);
+    }
+  };
+
   const handleReassign = async () => {
     if (!selectedArea) return;
     setReassigning(true);
@@ -134,10 +185,10 @@ export function IssueDetailCard() {
       await patch(`/projects/${projectId}/issues/${issueId}/reassign`, {
         assignedArea: selectedArea,
       });
-      // Refetch after reassign — diagnosis will be re-generated async
       const updated = await get<IssueWithDiagnosis>(`/projects/${projectId}/issues/${issueId}`);
       setIssue(updated);
       setSelectedArea('');
+      setDiagnosing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reassign');
     } finally {
@@ -323,21 +374,54 @@ export function IssueDetailCard() {
             </>
           )}
 
-          {/* No diagnosis yet */}
-          {!diag && issue.status !== 'new' && issue.status !== 'triaged' && (
-            <Panel title="Diagnosis">
-              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#888' }}>
-                {issue.status === 'diagnosis-failed'
-                  ? 'Diagnosis failed. Try reassigning to a different area.'
-                  : 'Diagnosis is being generated...'}
+          {/* Triaging in progress */}
+          {issue.status === 'new' && (
+            <Panel title="Triage">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '1.5rem', color: '#1565c0' }}>
+                <Spinner color="#1565c0" size={14} />
+                <span>AI triage agent is classifying this issue...</span>
               </div>
             </Panel>
           )}
 
-          {issue.status === 'new' && (
+          {/* Triaged — awaiting user action */}
+          {issue.status === 'triaged' && !diag && !diagnosing && (
+            <Panel title="Diagnosis">
+              <div style={{ textAlign: 'center', padding: '1.5rem' }}>
+                <p style={{ fontSize: '0.85rem', color: '#555', margin: '0 0 1rem 0' }}>
+                  Issue has been triaged to <strong>{issue.assignedArea}</strong>. Ready for AI diagnosis.
+                </p>
+                <button onClick={handleDiagnose} style={diagnoseButtonStyle}>
+                  Proceed with Diagnosis
+                </button>
+              </div>
+            </Panel>
+          )}
+
+          {/* Diagnosis in progress */}
+          {diagnosing && issue.status === 'triaged' && !diag && (
+            <Panel title="Diagnosis">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '1.5rem', color: '#7c3aed' }}>
+                <Spinner color="#7c3aed" size={14} />
+                <span>AI diagnosis agent is analyzing the issue...</span>
+              </div>
+            </Panel>
+          )}
+
+          {/* Diagnosis failed */}
+          {!diag && issue.status === 'diagnosis-failed' && (
+            <Panel title="Diagnosis">
+              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#c62828' }}>
+                Diagnosis failed. Try reassigning to a different area.
+              </div>
+            </Panel>
+          )}
+
+          {/* Needs review (no diagnosis possible) */}
+          {!diag && issue.status === 'needs-review' && (
             <Panel title="Status">
-              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#888' }}>
-                Issue is being triaged by the AI agent...
+              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#e65100' }}>
+                {issue.triageNotes || 'This issue requires manual review.'}
               </div>
             </Panel>
           )}
@@ -685,6 +769,17 @@ const actionButtonStyle: React.CSSProperties = {
   padding: '0.45rem 1rem',
   borderRadius: '4px',
   border: '1px solid',
+  fontSize: '0.85rem',
+  fontWeight: 600,
+};
+
+const diagnoseButtonStyle: React.CSSProperties = {
+  padding: '0.5rem 1.25rem',
+  borderRadius: '4px',
+  border: '1px solid #7c3aed',
+  backgroundColor: '#7c3aed',
+  color: '#fff',
+  cursor: 'pointer',
   fontSize: '0.85rem',
   fontWeight: 600,
 };

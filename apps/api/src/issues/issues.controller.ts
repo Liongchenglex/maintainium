@@ -15,6 +15,7 @@ import { ProjectsService } from '../projects/projects.service';
 import { AnalysisService } from '../analysis/analysis.service';
 import { IssuesService } from './issues.service';
 import { TriageAgentService } from './services/triage-agent.service';
+import { DiagnosisAgentService } from './services/diagnosis-agent.service';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { ReassignIssueDto } from './dto/reassign-issue.dto';
 
@@ -25,6 +26,7 @@ export class IssuesController {
     private projectsService: ProjectsService,
     private analysisService: AnalysisService,
     private triageAgentService: TriageAgentService,
+    private diagnosisAgentService: DiagnosisAgentService,
   ) {}
 
   @Post(':id/issues')
@@ -71,6 +73,31 @@ export class IssuesController {
     await this.projectsService.findByIdWithAuth(id, user.id);
     const analysis = await this.analysisService.findByProjectId(id);
     return this.triageAgentService.extractFeatureAreas(analysis);
+  }
+
+  @Post(':id/issues/:issueId/diagnose')
+  @UseGuards(AuthGuard)
+  async diagnoseIssue(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Param('issueId') issueId: string,
+  ) {
+    await this.projectsService.findByIdWithAuth(id, user.id);
+    const issue = await this.issuesService.findById(issueId, id);
+
+    if (issue.status !== 'triaged') {
+      return { message: 'Issue must be in triaged status to start diagnosis' };
+    }
+
+    // Fire-and-forget: trigger diagnosis in background
+    this.diagnosisAgentService.handleIssueTriaged({
+      issueId: issue.id,
+      projectId: id,
+      assignedArea: issue.assignedArea!,
+      userId: user.id,
+    });
+
+    return { message: 'Diagnosis started', issueId: issue.id };
   }
 
   @Patch(':id/issues/:issueId/reassign')

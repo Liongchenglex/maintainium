@@ -32,17 +32,53 @@ This feature introduces the project's **two fixed AI agents**. These are not dyn
 | Property | Value |
 |---|---|
 | **Role** | Root-cause analysis, proposed fix generation, complication scoring |
-| **Trigger** | `@OnEvent('issue.triaged')` — fires after successful triage |
+| **Trigger** | Manual via `POST /projects/:id/issues/:issueId/diagnose` (fire-and-forget) |
 | **LLM Client** | Own Anthropic client (separate from triage agent and M3) |
-| **Input** | Issue details, triage notes, M3 file list for assigned area, top 3 similar past issues (from vector memory) |
+| **Input** | Issue details, triage notes, M3 structured context (architecture, API routes, data model, file analysis), actual source code (top 5 files from GitHub), top 3 similar past issues (from vector memory) |
 | **Output** | `recommendationType`, `summary`, `rootCause`, `complicationScore` (1–10), `proposedChanges` (InvestigationData format), `educationContent`, `clarificationQuestions` |
-| **System prompt context** | Assigned area's file paths (from `fileRegistry[].llm.feature` match), similar past issues from pgvector |
+| **System prompt context** | M3 codebase intelligence (architecture summary, tech stack, business flow, API routes, data model, codebase patterns, detailed file analysis with purpose/functions/blast radius), actual source code for top 5 key files (fetched from GitHub, max 200 lines each), area file paths, similar past issues from pgvector |
 | **Decision matrix** | `code-fix` (bug with code solution) / `user-education` (misunderstanding) / `needs-clarification` (insufficient detail) / `escalation` (too complex or cross-cutting) |
 | **Complication scoring** | 1–3: single-file fix; 4–6: multi-file refactor; 7–10: architectural change |
 | **Failure mode** | LLM unavailable or error → `diagnosis-failed` status |
 | **Retry** | 2x on 429/rate-limit, exponential backoff |
+| **max_tokens** | 8192 (increased from 4096 to support richer context-informed responses) |
 
-**Why a separate agent (not merged with triage)?** Triage and diagnosis are fundamentally different tasks with different contexts. Triage needs the full project feature map (broad, shallow). Diagnosis needs area-specific file lists + vector memory (narrow, deep). Merging them would bloat the prompt and degrade quality. The event-driven separation also means triage failures don't block diagnosis retries, and reassignment cleanly re-triggers only diagnosis.
+#### M3 Context Enrichment (`buildM3Context`)
+
+The diagnosis agent extracts rich structured context from M3 analysis data to give the LLM deep understanding of the feature area:
+
+| M3 Source | Data Extracted | Limit |
+|---|---|---|
+| `llmIntelligence.architectureSummary` | Project architecture overview | Full text |
+| `llmIntelligence.techStackNarrative` | Technology stack description | Full text |
+| `llmIntelligence.businessFlows[]` | Business flow description + file list for the assigned area | 15 files max |
+| `apiSurface.routes[]` | API routes handled by area files | 15 routes max |
+| `apiSurface.externalCalls[]` | External API calls from area files | 10 calls max |
+| `dataModel.schemas[]` | Database schema definitions with columns | 10 schemas, 10 cols each |
+| `patterns` | Auth, error handling, naming conventions | All available |
+| `fileRegistry[]` filtered by `llm.feature` | File path, category, language, purpose, business context, functions, blast radius | 20 files, 5 functions each |
+
+Returns `''` if analysis is null (graceful degradation — diagnosis continues with issue text + vector memory only).
+
+#### GitHub File Content Fetching (`fetchAreaFileContents`)
+
+Fetches actual source code from GitHub for the top 5 most important area files, enabling the LLM to reference real code in its diagnosis and proposed diffs.
+
+**File selection scoring:**
+- Base score = blast radius from `dependencyGraph.blastRadius`
+- +10 bonus for `service`, `api-route`, `middleware`, `schema` categories
+- -5 penalty for files > 15KB (deprioritize large files)
+- Sort by score descending, take top 5
+
+**Fetch process:**
+1. `UsersService.getGithubToken(userId)` → decrypt token
+2. `ProjectsService.findById(projectId)` → get `githubOwner`, `githubRepoName`, `githubDefaultBranch`
+3. `Promise.allSettled()` — fetch each file independently (one failure doesn't block others)
+4. `GitHubService.getFileContent()` → base64 decode → truncate to 200 lines
+
+**Graceful degradation:** Token unavailable, GitHub error, rate limit → returns `[]`, logged as warning. Diagnosis continues with M3 structured data only.
+
+**Why a separate agent (not merged with triage)?** Triage and diagnosis are fundamentally different tasks with different contexts. Triage needs the full project feature map (broad, shallow). Diagnosis needs area-specific file lists, M3 structured data, actual source code, and vector memory (narrow, deep). Merging them would bloat the prompt and degrade quality. The event-driven separation also means triage failures don't block diagnosis retries, and reassignment cleanly re-triggers only diagnosis.
 
 ### Vector Memory (`EmbeddingService`)
 
@@ -67,15 +103,15 @@ This feature introduces the project's **two fixed AI agents**. These are not dyn
 
 | File | Purpose |
 |---|---|
-| `apps/api/src/issues/issues.module.ts` | NestJS module: imports Users, Auth, Projects, Analysis via forwardRef |
+| `apps/api/src/issues/issues.module.ts` | NestJS module: imports Users, Auth, Projects, Analysis, GitHub via forwardRef |
 | `apps/api/src/issues/issues.controller.ts` | REST endpoints: CRUD, feature-areas, reassign, resolve |
 | `apps/api/src/issues/issues.service.ts` | CRUD operations, event emission, reassign/resolve orchestration |
 | `apps/api/src/issues/issues.constants.ts` | Event name constants (`issue.received`, `issue.triaged`) |
-| `apps/api/src/issues/issues.interfaces.ts` | Payload types, LLM response shapes, ProposedChanges (matches InvestigationData) |
+| `apps/api/src/issues/issues.interfaces.ts` | Payload types (IssueTriagedPayload includes userId), LLM response shapes, ProposedChanges (matches InvestigationData) |
 | `apps/api/src/issues/dto/create-issue.dto.ts` | class-validator: reporterEmail, subject, description |
 | `apps/api/src/issues/dto/reassign-issue.dto.ts` | class-validator: assignedArea |
 | `apps/api/src/issues/services/triage-agent.service.ts` | Triage Agent: own Anthropic client, M3 feature area extraction, LLM classification |
-| `apps/api/src/issues/services/diagnosis-agent.service.ts` | Diagnosis Agent: own Anthropic client, area file lookup, vector memory query, LLM diagnosis |
+| `apps/api/src/issues/services/diagnosis-agent.service.ts` | Diagnosis Agent: own Anthropic client, M3 context builder, GitHub file fetcher, area file lookup, vector memory query, enriched LLM diagnosis |
 | `apps/api/src/issues/services/embedding.service.ts` | OpenAI embeddings: embed(), storeEmbedding(), findSimilar() via raw SQL |
 
 ### Schema
@@ -247,8 +283,10 @@ TriageAgent → EventEmitter: emit('issue.triaged', { issueId, projectId, assign
 EventEmitter → DiagnosisAgentService: handleIssueTriaged()
 DiagnosisAgent → AnalysisService: findByProjectId() → M3 data
 DiagnosisAgent → DiagnosisAgent: extractAreaFiles() → file paths for assigned area
+DiagnosisAgent → DiagnosisAgent: buildM3Context() → architecture, API routes, data model, patterns, file analysis
+DiagnosisAgent → UsersService + ProjectsService + GitHubService: fetchAreaFileContents() → top 5 source files (base64 decode, 200-line truncation)
 DiagnosisAgent → EmbeddingService: embed(issueText) → query findSimilar() → top 3 past issues
-DiagnosisAgent → Anthropic LLM: diagnose with area files + vector memory context
+DiagnosisAgent → Anthropic LLM: diagnose with M3 context + source code + area files + vector memory
 Anthropic LLM → DiagnosisAgent: { recommendationType, rootCause, complicationScore, proposedChanges }
 DiagnosisAgent → DB: INSERT issue_diagnoses
 DiagnosisAgent → DB: UPDATE reported_issues (status: 'diagnosed')
@@ -367,9 +405,10 @@ API → UI: Updated issue
 
 ### Internal Modules
 
-- **AnalysisModule** (M3) — `AnalysisService.findByProjectId()` for M3 codebase data (feature areas, file registry, architecture summary)
-- **ProjectsModule** (M2) — `ProjectsService.findByIdWithAuth()` for ownership checks
-- **UsersModule** (M1) — Auth guard dependency
+- **AnalysisModule** (M3) — `AnalysisService.findByProjectId()` for M3 codebase data (feature areas, file registry, architecture summary, API surface, data model, patterns)
+- **GitHubModule** (M2) — `GitHubService.getFileContent()` for fetching actual source code during diagnosis
+- **ProjectsModule** (M2) — `ProjectsService.findByIdWithAuth()` for ownership checks, `ProjectsService.findById()` for GitHub repo info during file fetch
+- **UsersModule** (M1) — Auth guard dependency, `UsersService.getGithubToken()` for GitHub API access during diagnosis
 - **AuthModule** (M1) — AuthGuard, CurrentUser decorator
 
 ### Patterns Used

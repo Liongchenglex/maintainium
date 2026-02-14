@@ -1,15 +1,15 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OnEvent } from '@nestjs/event-emitter';
 import Anthropic from '@anthropic-ai/sdk';
-import { eq, and, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../database/database.constants';
 import { DrizzleDB } from '../../database/database.module';
-import { issueDiagnoses, reportedIssues } from '../../database/schema';
+import { issueDiagnoses } from '../../database/schema';
 import { AnalysisService } from '../../analysis/analysis.service';
+import { GitHubService } from '../../github/github.service';
+import { UsersService } from '../../users/users.service';
+import { ProjectsService } from '../../projects/projects.service';
 import { IssuesService } from '../issues.service';
 import { EmbeddingService } from './embedding.service';
-import { ISSUES_EVENTS } from '../issues.constants';
 import {
   IssueTriagedPayload,
   DiagnosisLlmResponse,
@@ -28,6 +28,9 @@ export class DiagnosisAgentService {
     private analysisService: AnalysisService,
     private issuesService: IssuesService,
     private embeddingService: EmbeddingService,
+    private githubService: GitHubService,
+    private usersService: UsersService,
+    private projectsService: ProjectsService,
   ) {
     const apiKey = this.configService.get<string>('LLM_API_KEY');
     this.model = this.configService.get<string>('LLM_MODEL', 'claude-sonnet-4-5-20250929');
@@ -44,7 +47,6 @@ export class DiagnosisAgentService {
     return this.client !== null;
   }
 
-  @OnEvent(ISSUES_EVENTS.ISSUE_TRIAGED)
   async handleIssueTriaged(payload: IssueTriagedPayload): Promise<void> {
     this.logger.log(
       `Diagnosing issue ${payload.issueId} (area: ${payload.assignedArea})`,
@@ -64,6 +66,19 @@ export class DiagnosisAgentService {
 
       // Get files relevant to the assigned area from M3
       const areaFiles = this.extractAreaFiles(analysis, payload.assignedArea);
+      this.logger.log(`Found ${areaFiles.length} area files for "${payload.assignedArea}"`);
+
+      // Build rich M3 context
+      const m3Context = this.buildM3Context(analysis, payload.assignedArea);
+
+      // Fetch actual source code from GitHub for key files
+      const fileContents = await this.fetchAreaFileContents(
+        payload.userId,
+        payload.projectId,
+        areaFiles,
+        analysis,
+      );
+      this.logger.log(`Fetched ${fileContents.length} file contents from GitHub`);
 
       // Query vector memory for similar past issues
       let similarIssues: { content: string; metadata: Record<string, unknown> | null; similarity: number }[] = [];
@@ -95,6 +110,8 @@ export class DiagnosisAgentService {
         payload.assignedArea,
         areaFiles,
         similarIssues,
+        m3Context,
+        fileContents,
       );
 
       // Insert diagnosis
@@ -184,6 +201,269 @@ export class DiagnosisAgentService {
       .slice(0, 30);
   }
 
+  private buildM3Context(
+    analysis: Awaited<ReturnType<AnalysisService['findByProjectId']>>,
+    assignedArea: string,
+  ): string {
+    if (!analysis) return '';
+
+    const sections: string[] = [];
+
+    // Architecture summary + tech stack from LLM intelligence
+    if (analysis.llmIntelligence) {
+      const intel = analysis.llmIntelligence as {
+        architectureSummary?: string;
+        techStackNarrative?: string;
+        businessFlows?: Array<{
+          name: string;
+          description?: string;
+          files?: string[];
+        }>;
+      };
+
+      if (intel.architectureSummary) {
+        sections.push(`Architecture Summary:\n${intel.architectureSummary}`);
+      }
+      if (intel.techStackNarrative) {
+        sections.push(`Tech Stack:\n${intel.techStackNarrative}`);
+      }
+
+      // Business flow for the assigned area
+      const areaFlow = intel.businessFlows?.find((f) => f.name === assignedArea);
+      if (areaFlow) {
+        let flowText = `Business Flow — "${assignedArea}":\n${areaFlow.description || 'No description'}`;
+        if (areaFlow.files?.length) {
+          flowText += `\nKey files: ${areaFlow.files.slice(0, 15).join(', ')}`;
+        }
+        sections.push(flowText);
+      }
+    }
+
+    // API routes in the area
+    if (analysis.apiSurface) {
+      const api = analysis.apiSurface as {
+        routes?: Array<{
+          method: string;
+          path: string;
+          handlerFile?: string;
+          description?: string;
+        }>;
+        externalCalls?: Array<{
+          url?: string;
+          method?: string;
+          callerFile?: string;
+          description?: string;
+        }>;
+      };
+
+      const areaFileSet = new Set(this.extractAreaFiles(analysis, assignedArea));
+
+      if (api.routes?.length) {
+        const areaRoutes = api.routes
+          .filter((r) => r.handlerFile && areaFileSet.has(r.handlerFile))
+          .slice(0, 15);
+        if (areaRoutes.length > 0) {
+          sections.push(
+            `API Routes in "${assignedArea}":\n` +
+            areaRoutes.map((r) => `  ${r.method} ${r.path}${r.description ? ` — ${r.description}` : ''}`).join('\n'),
+          );
+        }
+      }
+
+      if (api.externalCalls?.length) {
+        const areaCalls = api.externalCalls
+          .filter((c) => c.callerFile && areaFileSet.has(c.callerFile))
+          .slice(0, 10);
+        if (areaCalls.length > 0) {
+          sections.push(
+            `External API Calls:\n` +
+            areaCalls.map((c) => `  ${c.method || 'GET'} ${c.url || 'unknown'}${c.description ? ` — ${c.description}` : ''}`).join('\n'),
+          );
+        }
+      }
+    }
+
+    // Data model schemas
+    if (analysis.dataModel) {
+      const dm = analysis.dataModel as {
+        schemas?: Array<{
+          name: string;
+          table?: string;
+          columns?: Array<{ name: string; type: string; nullable?: boolean }>;
+        }>;
+      };
+
+      if (dm.schemas?.length) {
+        const schemaText = dm.schemas.slice(0, 10).map((s) => {
+          const cols = s.columns?.slice(0, 10).map(
+            (c) => `    ${c.name}: ${c.type}${c.nullable ? ' (nullable)' : ''}`,
+          ).join('\n') || '    (no columns)';
+          return `  ${s.name}${s.table ? ` (table: ${s.table})` : ''}:\n${cols}`;
+        }).join('\n');
+        sections.push(`Data Model:\n${schemaText}`);
+      }
+    }
+
+    // Codebase patterns
+    if (analysis.patterns) {
+      const pat = analysis.patterns as {
+        authPattern?: string;
+        errorHandling?: string;
+        namingConvention?: string;
+      };
+      const patParts: string[] = [];
+      if (pat.authPattern) patParts.push(`  Auth: ${pat.authPattern}`);
+      if (pat.errorHandling) patParts.push(`  Error handling: ${pat.errorHandling}`);
+      if (pat.namingConvention) patParts.push(`  Naming: ${pat.namingConvention}`);
+      if (patParts.length > 0) {
+        sections.push(`Codebase Patterns:\n${patParts.join('\n')}`);
+      }
+    }
+
+    // Detailed file analysis for area files
+    if (analysis.fileRegistry) {
+      const files = analysis.fileRegistry as Array<{
+        path: string;
+        category?: string;
+        language?: string;
+        sizeBytes?: number;
+        llm?: {
+          feature: string;
+          purpose?: string;
+          businessContext?: string;
+          functions?: Array<{ name: string; description?: string }>;
+        };
+      }>;
+
+      const blastRadius = (analysis.dependencyGraph as {
+        blastRadius?: Record<string, number>;
+      })?.blastRadius;
+
+      const areaFileDetails = files
+        .filter((f) => f.llm?.feature === assignedArea)
+        .slice(0, 20);
+
+      if (areaFileDetails.length > 0) {
+        const fileLines = areaFileDetails.map((f) => {
+          const parts = [`  ${f.path}`];
+          if (f.category) parts.push(`    category: ${f.category}`);
+          if (f.language) parts.push(`    language: ${f.language}`);
+          if (f.llm?.purpose) parts.push(`    purpose: ${f.llm.purpose}`);
+          if (f.llm?.businessContext) parts.push(`    business context: ${f.llm.businessContext}`);
+          if (blastRadius?.[f.path] !== undefined) {
+            parts.push(`    blast radius: ${blastRadius[f.path]}`);
+          }
+          if (f.llm?.functions?.length) {
+            const fns = f.llm.functions.slice(0, 5).map(
+              (fn) => `      - ${fn.name}${fn.description ? `: ${fn.description}` : ''}`,
+            ).join('\n');
+            parts.push(`    functions:\n${fns}`);
+          }
+          return parts.join('\n');
+        }).join('\n\n');
+        sections.push(`Detailed File Analysis for "${assignedArea}":\n${fileLines}`);
+      }
+    }
+
+    return sections.join('\n\n');
+  }
+
+  private async fetchAreaFileContents(
+    userId: string,
+    projectId: string,
+    areaFiles: string[],
+    analysis: Awaited<ReturnType<AnalysisService['findByProjectId']>>,
+  ): Promise<Array<{ path: string; content: string }>> {
+    if (areaFiles.length === 0) return [];
+
+    // Get GitHub token
+    let token: string | null = null;
+    try {
+      token = await this.usersService.getGithubToken(userId);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to get GitHub token: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+    if (!token) {
+      this.logger.warn('GitHub token unavailable, skipping file content fetch');
+      return [];
+    }
+
+    // Get project details
+    const project = await this.projectsService.findById(projectId);
+    if (!project?.githubOwner || !project?.githubRepoName) {
+      this.logger.warn('Project missing GitHub info, skipping file content fetch');
+      return [];
+    }
+
+    // Score and select top 5 files
+    const blastRadius = (analysis?.dependencyGraph as {
+      blastRadius?: Record<string, number>;
+    })?.blastRadius ?? {};
+
+    const fileRegistry = (analysis?.fileRegistry ?? []) as Array<{
+      path: string;
+      category?: string;
+      sizeBytes?: number;
+    }>;
+    const fileMap = new Map(fileRegistry.map((f) => [f.path, f]));
+
+    const highPriorityCategories = new Set([
+      'service', 'api-route', 'middleware', 'schema',
+    ]);
+
+    const scored = areaFiles.map((path) => {
+      let score = blastRadius[path] ?? 0;
+      const meta = fileMap.get(path);
+      if (meta?.category && highPriorityCategories.has(meta.category)) {
+        score += 10;
+      }
+      if (meta?.sizeBytes && meta.sizeBytes > 15_000) {
+        score -= 5;
+      }
+      return { path, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const topFiles = scored.slice(0, 5);
+
+    // Fetch files in parallel
+    const results = await Promise.allSettled(
+      topFiles.map(async ({ path }) => {
+        const fileContent = await this.githubService.getFileContent(
+          token!,
+          project.githubOwner!,
+          project.githubRepoName!,
+          path,
+          project.githubDefaultBranch ?? undefined,
+        );
+
+        // base64 decode and truncate to 200 lines
+        const decoded = Buffer.from(fileContent.content, 'base64').toString('utf-8');
+        const lines = decoded.split('\n');
+        const truncated = lines.length > 200
+          ? lines.slice(0, 200).join('\n') + `\n... (truncated, ${lines.length - 200} more lines)`
+          : decoded;
+
+        return { path, content: truncated };
+      }),
+    );
+
+    const fetched: Array<{ path: string; content: string }> = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        fetched.push(result.value);
+      } else {
+        this.logger.warn(
+          `Failed to fetch file from GitHub: ${result.reason instanceof Error ? result.reason.message : 'Unknown error'}`,
+        );
+      }
+    }
+
+    return fetched;
+  }
+
   private async diagnoseIssue(
     reporterEmail: string,
     subject: string,
@@ -192,20 +472,43 @@ export class DiagnosisAgentService {
     assignedArea: string,
     areaFiles: string[],
     similarIssues: { content: string; similarity: number }[],
+    m3Context: string,
+    fileContents: Array<{ path: string; content: string }>,
   ): Promise<DiagnosisLlmResponse> {
-    const similarContext =
-      similarIssues.length > 0
-        ? `\n\nSimilar past issues (from vector memory):\n${similarIssues.map((s, i) => `${i + 1}. (similarity: ${s.similarity.toFixed(3)})\n${s.content}`).join('\n\n')}`
-        : '';
+    // Build system prompt sections
+    const promptParts: string[] = [
+      `You are a diagnosis agent for a software project. Given a customer-reported issue that has been triaged to the "${assignedArea}" feature area, analyze the issue and provide a detailed diagnosis.`,
+    ];
 
-    const filesContext =
-      areaFiles.length > 0
-        ? `\n\nRelevant files in the "${assignedArea}" area:\n${areaFiles.map((f) => `- ${f}`).join('\n')}`
-        : '';
+    // M3 structured context
+    if (m3Context) {
+      promptParts.push(`\nCodebase Intelligence (from static analysis):\n${m3Context}`);
+    }
 
-    const systemPrompt = `You are a diagnosis agent for a software project. Given a customer-reported issue that has been triaged to the "${assignedArea}" feature area, analyze the issue and provide a detailed diagnosis.
-${filesContext}${similarContext}
+    // File paths
+    if (areaFiles.length > 0) {
+      promptParts.push(
+        `\nAll files in the "${assignedArea}" area:\n${areaFiles.map((f) => `- ${f}`).join('\n')}`,
+      );
+    }
 
+    // Actual source code
+    if (fileContents.length > 0) {
+      const codeBlocks = fileContents.map(
+        (f) => `--- ${f.path} ---\n${f.content}\n--- end ${f.path} ---`,
+      ).join('\n\n');
+      promptParts.push(`\nSource code for key files:\n${codeBlocks}`);
+    }
+
+    // Similar past issues
+    if (similarIssues.length > 0) {
+      promptParts.push(
+        `\nSimilar past issues (from vector memory):\n${similarIssues.map((s, i) => `${i + 1}. (similarity: ${s.similarity.toFixed(3)})\n${s.content}`).join('\n\n')}`,
+      );
+    }
+
+    // JSON response format
+    promptParts.push(`
 Respond with ONLY valid JSON (no markdown, no explanation):
 {
   "recommendationType": "code-fix|user-education|needs-clarification|escalation",
@@ -229,7 +532,10 @@ Rules:
   }
 - If NOT "code-fix", proposedChanges MUST be null
 - educationContent: only for "user-education" — explain what the user should do differently
-- clarificationQuestions: only for "needs-clarification" — list specific questions to ask the reporter`;
+- clarificationQuestions: only for "needs-clarification" — list specific questions to ask the reporter
+- When proposing code changes, reference actual code from the source files provided above for accurate diffs`);
+
+    const systemPrompt = promptParts.join('\n');
 
     const userMessage = `Reporter: ${reporterEmail}
 Subject: ${subject}
@@ -251,7 +557,7 @@ ${triageNotes}`;
       try {
         const response = await this.client!.messages.create({
           model: this.model,
-          max_tokens: 4096,
+          max_tokens: 8192,
           system: systemPrompt,
           messages: [{ role: 'user' as const, content: userMessage }],
         });

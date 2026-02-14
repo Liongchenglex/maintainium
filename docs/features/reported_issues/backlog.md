@@ -88,6 +88,36 @@ Wire the "Implement Changes" button to actually create a GitHub branch and PR wi
 
 ## Agent Improvements (M5b+)
 
+### Complication Score Calibration — Separate Complexity from Urgency
+**Priority:** High
+**Depends on:** M5b (diagnosis agent)
+
+The Diagnosis Agent currently conflates urgency with complexity in `complicationScore`. An urgent but simple issue (e.g., "production login is broken" — one-line env fix) may receive a high complication score because the LLM interprets urgency signals as complexity. This causes the "Implement Changes" button to be disabled (score > 6) for issues that are actually trivial to fix.
+
+**Scope:**
+- Refine the diagnosis system prompt to explicitly separate urgency (how quickly it needs attention) from complexity (how many files/concepts are involved in the fix)
+- Add clear examples in the prompt: "A critical production outage caused by a missing env variable is complicationScore 1–2 (trivial fix), even though the issue is urgent"
+- Consider adding a separate `urgency` field to `DiagnosisLlmResponse` so the UI can display both dimensions independently
+- Evaluate whether `priority` (from triage) already captures urgency, making `complicationScore` purely about implementation complexity
+
+---
+
+### Diagnosis Agent Access to Actual Source Code ✅ IMPLEMENTED
+**Priority:** High (Completed)
+**Status:** Implemented
+
+The Diagnosis Agent now fetches actual source code from GitHub for the top 5 most important area files. This enables the LLM to reference real code in its root cause analysis and produce accurate diffs in `proposedChanges.changes[]`.
+
+**What was implemented:**
+- `buildM3Context()` — extracts rich structured context from M3 analysis (architecture, API routes, data model, patterns, detailed file analysis with purpose/functions/blast radius)
+- `fetchAreaFileContents()` — scores area files by blast radius + category priority, fetches top 5 via GitHub API, base64 decodes, truncates to 200 lines
+- `userId` added to `IssueTriagedPayload` for GitHub token lookup
+- `GitHubModule` added to `IssuesModule` imports
+- `max_tokens` increased from 4096 → 8192
+- Graceful degradation: no token → M3 data only; no M3 → issue text + vector memory only
+
+---
+
 ### Prompt Caching for Agent LLM Calls
 **Priority:** High
 **Depends on:** M5b (triage + diagnosis agents)
@@ -144,6 +174,59 @@ Currently the user must manually refresh to see triage/diagnosis progress. Add p
 
 ---
 
+## Issue Submission Enhancements (M5b+)
+
+### Image Upload in Issue Description
+**Priority:** Medium
+**Depends on:** M5b (current manual submit)
+
+Allow reporters to attach screenshots and images when submitting issues. Visual context (error screenshots, UI glitches, console output) significantly improves triage accuracy and diagnosis quality.
+
+**Scope:**
+- Add file upload field to `SubmitIssueForm` (accept image types: PNG, JPG, GIF, WebP)
+- Backend: store images in object storage (S3 or local) with project-scoped paths
+- Add `attachments` JSONB column to `reported_issues` table (array of `{ url, filename, contentType, sizeBytes }`)
+- Pass image URLs to triage and diagnosis agents as part of the LLM prompt (Anthropic vision API supports image content blocks)
+- Size limits: max 5MB per image, max 3 images per issue
+- Frontend: image preview in issue detail card
+
+**Open decisions:**
+- Storage backend: S3 vs local filesystem vs Supabase Storage
+- Whether to send images to LLM directly (vision API) or extract text via OCR first
+- Image compression/resize before storage
+
+---
+
+### Custom Knowledgebase Upload per Feature Area
+**Priority:** Medium
+**Depends on:** M5b (diagnosis agent), M3 (feature area discovery)
+
+Allow project owners to upload custom knowledgebase files (markdown, text, PDF) per feature area. These documents augment the M3-derived context with domain-specific knowledge that static analysis cannot capture — business rules, known workarounds, internal runbooks, API quirks, historical decisions, etc.
+
+**Scope:**
+- New UI section per feature area: "Feature SME Knowledgebase" with file upload + list
+- Backend: `feature_knowledgebases` table (`project_id`, `feature_area`, `filename`, `content_text`, `uploaded_by`, `created_at`)
+- File processing: extract text from uploaded files (markdown passthrough, PDF text extraction)
+- Diagnosis agent integration: include knowledgebase content in the system prompt alongside M3 context, capped at ~5,000 tokens per feature area
+- Per-file size limit: 500KB, max 10 files per feature area
+- CRUD: upload, list, delete knowledgebase entries per feature area
+
+**Why not just rely on M3?**
+M3 analyzes code structure — it discovers file purposes, API routes, and dependency graphs. But it cannot know:
+- Business rules ("refunds are only allowed within 30 days")
+- Known workarounds ("the payment gateway returns 500 on duplicate idempotency keys — retry once")
+- Historical decisions ("we chose Redis over Memcached because of pub/sub requirements")
+- Internal runbooks ("if Stripe webhook fails, check the dead letter queue first")
+
+Custom knowledgebases let each feature area SME inject this tribal knowledge so the diagnosis agent produces context-aware recommendations.
+
+**Open decisions:**
+- File format support: markdown-only vs markdown + PDF + plain text
+- Whether to embed knowledgebase content in vector memory (searchable) or include inline (always present)
+- Token budget allocation between M3 context, knowledgebase, and source code in the diagnosis prompt
+
+---
+
 ## Explicitly Out of Scope (M5b)
 
 These were explicitly scoped out in the requirements and are not planned for near-term implementation:
@@ -151,7 +234,7 @@ These were explicitly scoped out in the requirements and are not planned for nea
 | Item | Reason |
 |------|--------|
 | Auto-reply to reporters | No outbound email for this milestone |
-| Attachment analysis | Email body only — attachments ignored |
+| Attachment analysis (email) | Email body only — attachments from email ingestion ignored (image upload via manual submit is a backlog item) |
 | Multi-language email parsing | English only |
 | Email thread / conversation tracking | Each email = one issue |
 | SLA tracking / response time metrics | Not a support desk tool |
