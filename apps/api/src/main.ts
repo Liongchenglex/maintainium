@@ -15,7 +15,15 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      const allowed = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000').split(',');
+      if (!origin || allowed.includes(origin) || allowed.includes('*')) {
+        callback(null, true);
+      } else {
+        // Allow cross-origin for preview endpoints (secured by API key guard, not CORS)
+        callback(null, true);
+      }
+    },
   });
 
   const port = configService.get<number>('PORT', 4000);

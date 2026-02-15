@@ -5,6 +5,10 @@ import {
   GitHubTreeEntry,
   GitHubFileContent,
   GitHubWebhook,
+  GitHubRef,
+  GitHubCommitResponse,
+  GitHubPullRequest,
+  GitHubCodeSearchItem,
 } from './github.interfaces';
 import {
   GitHubTokenExpiredError,
@@ -92,6 +96,20 @@ export class GitHubService {
     return result.items;
   }
 
+  async searchCode(
+    token: string,
+    owner: string,
+    repo: string,
+    query: string,
+    perPage = 20,
+  ): Promise<GitHubCodeSearchItem[]> {
+    const result = await this.request<{ items: GitHubCodeSearchItem[] }>(
+      token,
+      `/search/code?q=${encodeURIComponent(query + ' repo:' + owner + '/' + repo)}&per_page=${perPage}`,
+    );
+    return result.items;
+  }
+
   async getRepository(
     token: string,
     owner: string,
@@ -150,6 +168,85 @@ export class GitHubService {
             secret,
           },
         }),
+      },
+    );
+  }
+
+  async getRef(
+    token: string,
+    owner: string,
+    repo: string,
+    ref: string,
+  ): Promise<GitHubRef> {
+    return this.request<GitHubRef>(
+      token,
+      `/repos/${owner}/${repo}/git/ref/heads/${ref}`,
+    );
+  }
+
+  async createBranch(
+    token: string,
+    owner: string,
+    repo: string,
+    branchName: string,
+    fromSha: string,
+  ): Promise<GitHubRef> {
+    return this.request<GitHubRef>(
+      token,
+      `/repos/${owner}/${repo}/git/refs`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ref: `refs/heads/${branchName}`,
+          sha: fromSha,
+        }),
+      },
+    );
+  }
+
+  async createOrUpdateFile(
+    token: string,
+    owner: string,
+    repo: string,
+    path: string,
+    content: string,
+    message: string,
+    branch: string,
+    sha?: string,
+  ): Promise<GitHubCommitResponse> {
+    return this.request<GitHubCommitResponse>(
+      token,
+      `/repos/${owner}/${repo}/contents/${path}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          content: Buffer.from(content).toString('base64'),
+          branch,
+          ...(sha ? { sha } : {}),
+        }),
+      },
+    );
+  }
+
+  async createPullRequest(
+    token: string,
+    owner: string,
+    repo: string,
+    title: string,
+    body: string,
+    head: string,
+    base: string,
+  ): Promise<GitHubPullRequest> {
+    return this.request<GitHubPullRequest>(
+      token,
+      `/repos/${owner}/${repo}/pulls`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body, head, base }),
       },
     );
   }

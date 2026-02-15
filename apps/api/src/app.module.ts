@@ -13,6 +13,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { MonitorModule } from './monitor/monitor.module';
 import { IssuesModule } from './issues/issues.module';
+import { PreviewModule } from './preview/preview.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { IssuesModule } from './issues/issues.module';
     AnalysisModule,
     MonitorModule,
     IssuesModule,
+    PreviewModule,
   ],
 })
 export class AppModule {}

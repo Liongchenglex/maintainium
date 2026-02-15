@@ -8,3 +8,4 @@ export * from './monitor-scans';
 export * from './reported-issues';
 export * from './issue-diagnoses';
 export * from './agent-memory';
+export * from './preview-changes';

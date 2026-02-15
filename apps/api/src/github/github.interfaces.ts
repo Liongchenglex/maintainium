@@ -50,3 +50,31 @@ export interface GitHubWebhook {
     content_type: string;
   };
 }
+
+export interface GitHubRef {
+  ref: string;
+  object: { sha: string; type: string };
+}
+
+export interface GitHubCommitResponse {
+  content: { sha: string; path: string };
+  commit: { sha: string; message: string; html_url: string };
+}
+
+export interface GitHubPullRequest {
+  id: number;
+  number: number;
+  html_url: string;
+  title: string;
+  state: string;
+  head: { ref: string };
+  base: { ref: string };
+}
+
+export interface GitHubCodeSearchItem {
+  name: string;
+  path: string;
+  sha: string;
+  html_url: string;
+  score: number;
+}

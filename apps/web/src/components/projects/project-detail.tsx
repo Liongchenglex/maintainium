@@ -10,6 +10,7 @@ import { GitHubReconnectPrompt } from './github-reconnect-prompt';
 import { AnalysisOverview } from '../analysis/analysis-overview';
 import { MonitorOverview } from '../monitor/monitor-overview';
 import { ReportedIssuesOverview } from '../issues/reported-issues-overview';
+import { PreviewOverview } from '../preview/preview-overview';
 
 interface ProjectData {
   id: string;
@@ -22,9 +23,11 @@ interface ProjectData {
   healthStatus: string;
   webhookId: number | null;
   productionUrl: string | null;
+  previewUrl: string | null;
+  previewApiKey: string | null;
 }
 
-type Tab = 'files' | 'analysis' | 'monitor' | 'issues';
+type Tab = 'files' | 'analysis' | 'monitor' | 'issues' | 'preview';
 
 export function ProjectDetail() {
   const params = useParams();
@@ -40,7 +43,7 @@ export function ProjectDetail() {
   const [tokenExpired, setTokenExpired] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'monitor' || tab === 'analysis' || tab === 'issues') return tab;
+    if (tab === 'monitor' || tab === 'analysis' || tab === 'issues' || tab === 'preview') return tab;
     return 'files';
   });
 
@@ -212,6 +215,12 @@ export function ProjectDetail() {
         >
           Reported Issues
         </button>
+        <button
+          style={tabStyle(activeTab === 'preview')}
+          onClick={() => setActiveTab('preview')}
+        >
+          Preview
+        </button>
       </div>
 
       {activeTab === 'files' && (
@@ -255,6 +264,19 @@ export function ProjectDetail() {
 
       {activeTab === 'issues' && (
         <ReportedIssuesOverview projectId={projectId} />
+      )}
+
+      {activeTab === 'preview' && (
+        <PreviewOverview
+          projectId={projectId}
+          previewUrl={project.previewUrl}
+          previewApiKey={project.previewApiKey}
+          onPreviewSetup={(url, key) =>
+            setProject((prev) =>
+              prev ? { ...prev, previewUrl: url, previewApiKey: key } : prev,
+            )
+          }
+        />
       )}
     </div>
   );
